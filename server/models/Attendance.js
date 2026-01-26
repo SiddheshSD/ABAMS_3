@@ -1,0 +1,50 @@
+const mongoose = require('mongoose');
+
+const attendanceSchema = new mongoose.Schema({
+    classId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Class',
+        required: true
+    },
+    date: {
+        type: Date,
+        required: true
+    },
+    records: [{
+        studentId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'User',
+            required: true
+        },
+        status: {
+            type: String,
+            enum: ['present', 'absent', 'late'],
+            default: 'present'
+        }
+    }],
+    presentCount: {
+        type: Number,
+        default: 0
+    },
+    absentCount: {
+        type: Number,
+        default: 0
+    },
+    totalCount: {
+        type: Number,
+        default: 0
+    },
+    createdBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
+    },
+    createdAt: {
+        type: Date,
+        default: Date.now
+    }
+});
+
+// Compound index to prevent duplicate entries for same class and date
+attendanceSchema.index({ classId: 1, date: 1 }, { unique: true });
+
+module.exports = mongoose.model('Attendance', attendanceSchema);

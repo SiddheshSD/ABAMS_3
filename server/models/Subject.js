@@ -1,0 +1,46 @@
+const mongoose = require('mongoose');
+
+const subjectSchema = new mongoose.Schema({
+    name: {
+        type: String,
+        required: true,
+        trim: true
+    },
+    code: {
+        type: String,
+        required: true,
+        trim: true,
+        uppercase: true
+    },
+    type: {
+        type: String,
+        enum: ['theory', 'practical'],
+        default: 'theory'
+    },
+    practicalName: {
+        type: String,
+        trim: true
+    },
+    practicalCode: {
+        type: String,
+        trim: true,
+        uppercase: true
+    },
+    departmentId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Department'
+    },
+    isActive: {
+        type: Boolean,
+        default: true
+    },
+    createdAt: {
+        type: Date,
+        default: Date.now
+    }
+});
+
+// Compound index for unique code per department
+subjectSchema.index({ code: 1, departmentId: 1 }, { unique: true });
+
+module.exports = mongoose.model('Subject', subjectSchema);

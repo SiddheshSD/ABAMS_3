@@ -1,0 +1,32 @@
+const express = require('express');
+const mongoose = require('mongoose');
+const cors = require('cors');
+const dotenv = require('dotenv');
+dotenv.config();
+const app = express();
+// Middleware
+app.use(cors());
+app.use(express.json());
+// MongoDB Connection
+mongoose.connect(process.env.MONGODB_URI)
+    .then(() => console.log('MongoDB Connected'))
+    .catch(err => console.log('MongoDB Connection Error:', err));
+// Routes
+app.use('/api/auth', require('./routes/auth'));
+app.use('/api/users', require('./routes/users'));
+app.use('/api/departments', require('./routes/departments'));
+app.use('/api/classes', require('./routes/classes'));
+app.use('/api/timeslots', require('./routes/timeslots'));
+app.use('/api/rooms', require('./routes/rooms'));
+app.use('/api/timetables', require('./routes/timetables'));
+app.use('/api/stats', require('./routes/stats'));
+app.use('/api/subjects', require('./routes/subjects'));
+app.use('/api/hod', require('./routes/hod'));
+// Health check
+app.get('/api/health', (req, res) => {
+    res.json({ status: 'OK', message: 'ABAMS Server Running' });
+});
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+});

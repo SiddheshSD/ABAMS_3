@@ -1,0 +1,62 @@
+import { NavLink } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+
+const Sidebar = ({ collapsed, mobileOpen, onMobileClose }) => {
+    const { user } = useAuth();
+
+    // Admin navigation items
+    const adminNavItems = [
+        { path: '/dashboard', icon: '📊', label: 'Dashboard' },
+        { path: '/users', icon: '👥', label: 'Users' },
+        { path: '/departments', icon: '🏢', label: 'Departments' },
+        { path: '/classes', icon: '📚', label: 'Classes' },
+        { path: '/subjects', icon: '📖', label: 'Subjects' },
+        { path: '/timetable', icon: '📅', label: 'Timetable' },
+        { path: '/rooms', icon: '🚪', label: 'Classrooms' },
+        { path: '/timeslots', icon: '⏰', label: 'Time Slots' },
+    ];
+
+    // HOD navigation items
+    const hodNavItems = [
+        { path: '/hod/dashboard', icon: '📊', label: 'Dashboard' },
+        { path: '/hod/attendance', icon: '📋', label: 'Attendance' },
+        { path: '/hod/students', icon: '👨‍🎓', label: 'Students' },
+        { path: '/hod/teachers', icon: '👨‍🏫', label: 'Teachers' },
+        { path: '/hod/classes', icon: '📚', label: 'Classes' },
+        { path: '/hod/timetable', icon: '📅', label: 'Timetable' },
+        { path: '/hod/leave-requests', icon: '📝', label: 'Leave Requests' },
+        { path: '/hod/complaints', icon: '📢', label: 'Complaints' },
+    ];
+
+    // Select nav items based on user role
+    const navItems = user?.role === 'hod' ? hodNavItems : adminNavItems;
+
+    return (
+        <>
+            <div className={`mobile-overlay ${mobileOpen ? 'show' : ''}`} onClick={onMobileClose}></div>
+            <aside className={`sidebar ${collapsed ? 'collapsed' : ''} ${mobileOpen ? 'mobile-open' : ''}`}>
+                <div className="sidebar-header">
+                    <div className="logo">
+                        <div className="logo-icon">🎓</div>
+                        <span className="logo-text">ABAMS</span>
+                    </div>
+                </div>
+                <nav className="sidebar-nav">
+                    {navItems.map((item) => (
+                        <NavLink
+                            key={item.path}
+                            to={item.path}
+                            className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
+                            onClick={onMobileClose}
+                        >
+                            <span className="nav-icon">{item.icon}</span>
+                            <span className="nav-label">{item.label}</span>
+                        </NavLink>
+                    ))}
+                </nav>
+            </aside>
+        </>
+    );
+};
+
+export default Sidebar;
