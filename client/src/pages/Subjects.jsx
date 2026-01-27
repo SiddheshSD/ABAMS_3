@@ -14,6 +14,7 @@ const Subjects = () => {
         type: 'theory',
         practicalName: '',
         practicalCode: '',
+        year: 1,
         departmentId: ''
     });
 
@@ -44,6 +45,7 @@ const Subjects = () => {
             type: 'theory',
             practicalName: '',
             practicalCode: '',
+            year: 1,
             departmentId: ''
         });
         setModalOpen(true);
@@ -57,6 +59,7 @@ const Subjects = () => {
             type: subject.type,
             practicalName: subject.practicalName || '',
             practicalCode: subject.practicalCode || '',
+            year: subject.year || 1,
             departmentId: subject.departmentId?._id || ''
         });
         setModalOpen(true);
@@ -107,6 +110,7 @@ const Subjects = () => {
                             <tr>
                                 <th>Subject Name</th>
                                 <th>Code</th>
+                                <th>Year</th>
                                 <th>Type</th>
                                 <th>Practical Name</th>
                                 <th>Practical Code</th>
@@ -117,7 +121,7 @@ const Subjects = () => {
                         <tbody>
                             {subjects.length === 0 ? (
                                 <tr>
-                                    <td colSpan="7" className="empty-state">
+                                    <td colSpan="8" className="empty-state">
                                         <div className="empty-icon">📖</div>
                                         <h3>No subjects found</h3>
                                         <p>Add subjects to get started</p>
@@ -129,6 +133,9 @@ const Subjects = () => {
                                         <td><strong>{subject.name}</strong></td>
                                         <td>
                                             <span className="badge badge-primary">{subject.code}</span>
+                                        </td>
+                                        <td>
+                                            <span className="badge badge-info">Year {subject.year}</span>
                                         </td>
                                         <td>
                                             <span className={`badge ${subject.type === 'practical' ? 'badge-warning' : 'badge-success'}`}>
@@ -196,6 +203,19 @@ const Subjects = () => {
 
                     <div className="form-row">
                         <div className="form-group">
+                            <label className="form-label">Year *</label>
+                            <select
+                                value={formData.year}
+                                onChange={(e) => setFormData({ ...formData, year: parseInt(e.target.value) })}
+                                required
+                            >
+                                <option value={1}>1st Year</option>
+                                <option value={2}>2nd Year</option>
+                                <option value={3}>3rd Year</option>
+                                <option value={4}>4th Year</option>
+                            </select>
+                        </div>
+                        <div className="form-group">
                             <label className="form-label">Type</label>
                             <select
                                 value={formData.type}
@@ -205,18 +225,19 @@ const Subjects = () => {
                                 <option value="practical">Practical</option>
                             </select>
                         </div>
-                        <div className="form-group">
-                            <label className="form-label">Department (Optional)</label>
-                            <select
-                                value={formData.departmentId}
-                                onChange={(e) => setFormData({ ...formData, departmentId: e.target.value })}
-                            >
-                                <option value="">All Departments</option>
-                                {departments.map((dept) => (
-                                    <option key={dept._id} value={dept._id}>{dept.name}</option>
-                                ))}
-                            </select>
-                        </div>
+                    </div>
+
+                    <div className="form-group">
+                        <label className="form-label">Department (Optional)</label>
+                        <select
+                            value={formData.departmentId}
+                            onChange={(e) => setFormData({ ...formData, departmentId: e.target.value })}
+                        >
+                            <option value="">All Departments</option>
+                            {departments.map((dept) => (
+                                <option key={dept._id} value={dept._id}>{dept.name}</option>
+                            ))}
+                        </select>
                     </div>
 
                     <div className="form-row">

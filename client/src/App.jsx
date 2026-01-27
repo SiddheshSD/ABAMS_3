@@ -5,6 +5,9 @@ import Login from './pages/Login';
 import ChangePassword from './pages/ChangePassword';
 import Dashboard from './pages/Dashboard';
 import Users from './pages/Users';
+import Students from './pages/Students';
+import Teachers from './pages/Teachers';
+import Lectures from './pages/Lectures';
 import Departments from './pages/Departments';
 import Classes from './pages/Classes';
 import Rooms from './pages/Rooms';
@@ -22,6 +25,7 @@ import HodClasses from './pages/hod/HodClasses';
 import HodTimetable from './pages/hod/HodTimetable';
 import HodLeaveRequests from './pages/hod/HodLeaveRequests';
 import HodComplaints from './pages/hod/HodComplaints';
+import HodLectures from './pages/hod/HodLectures';
 
 import './index.css';
 
@@ -95,6 +99,9 @@ function App() {
 
             {/* Admin Routes */}
             <Route path="users" element={<AdminRoute><Users /></AdminRoute>} />
+            <Route path="students" element={<AdminRoute><Students /></AdminRoute>} />
+            <Route path="teachers" element={<AdminRoute><Teachers /></AdminRoute>} />
+            <Route path="lectures" element={<AdminRoute><Lectures /></AdminRoute>} />
             <Route path="departments" element={<AdminRoute><Departments /></AdminRoute>} />
             <Route path="classes" element={<AdminRoute><Classes /></AdminRoute>} />
             <Route path="rooms" element={<AdminRoute><Rooms /></AdminRoute>} />
@@ -107,6 +114,7 @@ function App() {
             <Route path="hod/attendance" element={<HodRoute><HodAttendance /></HodRoute>} />
             <Route path="hod/students" element={<HodRoute><HodStudents /></HodRoute>} />
             <Route path="hod/teachers" element={<HodRoute><HodTeachers /></HodRoute>} />
+            <Route path="hod/lectures" element={<HodRoute><HodLectures /></HodRoute>} />
             <Route path="hod/classes" element={<HodRoute><HodClasses /></HodRoute>} />
             <Route path="hod/timetable" element={<HodRoute><HodTimetable /></HodRoute>} />
             <Route path="hod/leave-requests" element={<HodRoute><HodLeaveRequests /></HodRoute>} />

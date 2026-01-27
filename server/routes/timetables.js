@@ -25,10 +25,34 @@ router.get('/', auth, async (req, res) => {
     }
 });
 
+// @route   GET /api/timetables/lectures
+// @desc    Get all lectures for timetable scheduling (admin access)
+router.get('/lectures', auth, adminOnly, async (req, res) => {
+    try {
+        const Lecture = require('../models/Lecture');
+        const { classId } = req.query;
+
+        const filter = { isActive: true };
+        if (classId) filter.classId = classId;
+
+        const lectures = await Lecture.find(filter)
+            .populate('subjectId', 'name code')
+            .populate('teacherId', 'fullName username')
+            .populate('classId', 'name year')
+            .populate('departmentId', 'name')
+            .sort({ createdAt: -1 });
+
+        res.json(lectures);
+    } catch (error) {
+        console.error('Lectures fetch error:', error);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
 // @route   POST /api/timetables
 router.post('/', auth, adminOnly, async (req, res) => {
     try {
-        const { classId, subject, teacherId, day, timeSlotId, roomId, type } = req.body;
+        const { classId, subject, teacherId, day, timeSlotId, roomId, type, lectureId } = req.body;
 
         // Check for room conflict
         const roomConflict = await Timetable.findOne({ day, timeSlotId, roomId });
@@ -43,7 +67,8 @@ router.post('/', auth, adminOnly, async (req, res) => {
         }
 
         const timetable = new Timetable({
-            classId, subject, teacherId, day, timeSlotId, roomId, type
+            classId, subject, teacherId, day, timeSlotId, roomId, type,
+            lectureId: lectureId || undefined
         });
 
         await timetable.save();
@@ -64,7 +89,7 @@ router.post('/', auth, adminOnly, async (req, res) => {
 // @route   PUT /api/timetables/:id
 router.put('/:id', auth, adminOnly, async (req, res) => {
     try {
-        const { classId, subject, teacherId, day, timeSlotId, roomId, type } = req.body;
+        const { classId, subject, teacherId, day, timeSlotId, roomId, type, lectureId } = req.body;
         const timetableId = req.params.id;
 
         // Check for room conflict (excluding current entry)
@@ -87,7 +112,7 @@ router.put('/:id', auth, adminOnly, async (req, res) => {
 
         const timetable = await Timetable.findByIdAndUpdate(
             timetableId,
-            { classId, subject, teacherId, day, timeSlotId, roomId, type },
+            { classId, subject, teacherId, day, timeSlotId, roomId, type, lectureId: lectureId || undefined },
             { new: true }
         )
             .populate('classId')

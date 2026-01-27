@@ -16,8 +16,17 @@ export const AuthProvider = ({ children }) => {
         setLoading(false);
     }, []);
 
-    const login = async (username, password) => {
-        const response = await api.post('/auth/login', { username, password });
+    const login = async (username, password, selectedRole) => {
+        const response = await api.post('/auth/login', { username, password, selectedRole });
+        const { token, user: userData } = response.data;
+        localStorage.setItem('token', token);
+        localStorage.setItem('user', JSON.stringify(userData));
+        setUser(userData);
+        return userData;
+    };
+
+    const selectRole = async (userId, selectedRole) => {
+        const response = await api.post('/auth/select-role', { userId, selectedRole });
         const { token, user: userData } = response.data;
         localStorage.setItem('token', token);
         localStorage.setItem('user', JSON.stringify(userData));
@@ -39,7 +48,7 @@ export const AuthProvider = ({ children }) => {
     };
 
     return (
-        <AuthContext.Provider value={{ user, loading, login, logout, changePassword }}>
+        <AuthContext.Provider value={{ user, loading, login, logout, changePassword, selectRole }}>
             {children}
         </AuthContext.Provider>
     );

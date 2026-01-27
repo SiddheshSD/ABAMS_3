@@ -6,10 +6,15 @@ const User = require('../models/User');
 const { auth } = require('../middleware/auth');
 
 // @route   POST /api/auth/login
-// @desc    Login user
+// @desc    Login user with role selection
 router.post('/login', async (req, res) => {
     try {
-        const { username, password } = req.body;
+        const { username, password, selectedRole } = req.body;
+
+        // Role is required
+        if (!selectedRole) {
+            return res.status(400).json({ message: 'Please select a role' });
+        }
 
         // Find user
         const user = await User.findOne({ username: username.toLowerCase() });
@@ -28,9 +33,23 @@ router.post('/login', async (req, res) => {
             return res.status(400).json({ message: 'Account is deactivated' });
         }
 
-        // Generate token
+        // Get user's roles (use roles array or fallback to single role)
+        const userRoles = user.roles && user.roles.length > 0 ? user.roles : [user.role];
+
+        // Validate that user has the selected role
+        if (!userRoles.includes(selectedRole)) {
+            return res.status(400).json({
+                message: `You do not have the "${selectedRole}" role. Please select the correct role.`
+            });
+        }
+
+        // Update user's activeRole
+        user.activeRole = selectedRole;
+        await user.save();
+
+        // Generate token with activeRole
         const token = jwt.sign(
-            { userId: user._id },
+            { userId: user._id, activeRole: selectedRole },
             process.env.JWT_SECRET,
             { expiresIn: '24h' }
         );
@@ -41,12 +60,58 @@ router.post('/login', async (req, res) => {
                 id: user._id,
                 fullName: user.fullName,
                 username: user.username,
-                role: user.role,
+                role: selectedRole,
+                roles: userRoles,
+                activeRole: selectedRole,
                 mustChangePassword: user.mustChangePassword
             }
         });
     } catch (error) {
         console.error('Login error:', error);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// @route   POST /api/auth/select-role
+// @desc    Select role for multi-role users (after initial login)
+router.post('/select-role', async (req, res) => {
+    try {
+        const { userId, selectedRole } = req.body;
+
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        const userRoles = user.roles && user.roles.length > 0 ? user.roles : [user.role];
+
+        if (!userRoles.includes(selectedRole)) {
+            return res.status(400).json({ message: 'Invalid role selection' });
+        }
+
+        user.activeRole = selectedRole;
+        await user.save();
+
+        const token = jwt.sign(
+            { userId: user._id, activeRole: selectedRole },
+            process.env.JWT_SECRET,
+            { expiresIn: '24h' }
+        );
+
+        res.json({
+            token,
+            user: {
+                id: user._id,
+                fullName: user.fullName,
+                username: user.username,
+                role: selectedRole,
+                roles: userRoles,
+                activeRole: selectedRole,
+                mustChangePassword: user.mustChangePassword
+            }
+        });
+    } catch (error) {
+        console.error('Role selection error:', error);
         res.status(500).json({ message: 'Server error' });
     }
 });
@@ -85,7 +150,15 @@ router.get('/me', auth, async (req, res) => {
             .select('-password')
             .populate('departmentId')
             .populate('classId');
-        res.json(user);
+
+        // Include roles info
+        const userRoles = user.roles && user.roles.length > 0 ? user.roles : [user.role];
+
+        res.json({
+            ...user.toObject(),
+            roles: userRoles,
+            activeRole: user.activeRole || user.role
+        });
     } catch (error) {
         res.status(500).json({ message: 'Server error' });
     }
@@ -97,10 +170,14 @@ const initAdmin = async () => {
         const adminExists = await User.findOne({ username: 'admin' });
         if (!adminExists) {
             const admin = new User({
+                firstName: 'System',
+                lastName: 'Administrator',
                 fullName: 'System Administrator',
                 username: 'admin',
                 password: 'admin',
+                roles: ['admin'],
                 role: 'admin',
+                activeRole: 'admin',
                 mustChangePassword: false
             });
             await admin.save();

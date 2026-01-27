@@ -604,7 +604,7 @@ router.get('/timetables/other-departments', async (req, res) => {
 // @desc    Create timetable entry for HOD's department
 router.post('/timetables', async (req, res) => {
     try {
-        const { classId, subject, teacherId, day, timeSlotId, roomId, type } = req.body;
+        const { classId, subject, teacherId, day, timeSlotId, roomId, type, lectureId } = req.body;
         const departmentId = req.departmentId;
 
         // Verify class is in department
@@ -626,7 +626,8 @@ router.post('/timetables', async (req, res) => {
         }
 
         const timetable = new Timetable({
-            classId, subject, teacherId, day, timeSlotId, roomId, type
+            classId, subject, teacherId, day, timeSlotId, roomId, type,
+            lectureId: lectureId || undefined
         });
 
         await timetable.save();
@@ -648,7 +649,7 @@ router.post('/timetables', async (req, res) => {
 // @desc    Update timetable entry
 router.put('/timetables/:id', async (req, res) => {
     try {
-        const { classId, subject, teacherId, day, timeSlotId, roomId, type } = req.body;
+        const { classId, subject, teacherId, day, timeSlotId, roomId, type, lectureId } = req.body;
         const departmentId = req.departmentId;
         const timetableId = req.params.id;
 
@@ -684,7 +685,7 @@ router.put('/timetables/:id', async (req, res) => {
 
         const timetable = await Timetable.findByIdAndUpdate(
             timetableId,
-            { classId, subject, teacherId, day, timeSlotId, roomId, type },
+            { classId, subject, teacherId, day, timeSlotId, roomId, type, lectureId: lectureId || undefined },
             { new: true }
         )
             .populate('classId')
@@ -815,6 +816,157 @@ router.post('/timetables/bulk-upload', upload.single('file'), async (req, res) =
         });
     } catch (error) {
         console.error('HOD timetable bulk upload error:', error);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// ============================================
+// LECTURES (Subject-Teacher-Class Assignments)
+// ============================================
+
+const Lecture = require('../models/Lecture');
+const Subject = require('../models/Subject');
+
+// @route   GET /api/hod/lectures
+// @desc    Get all lectures for HOD's department
+router.get('/lectures', async (req, res) => {
+    try {
+        const departmentId = req.departmentId;
+
+        const lectures = await Lecture.find({ departmentId, isActive: true })
+            .populate('subjectId', 'name code')
+            .populate('teacherId', 'fullName username')
+            .populate('classId', 'name year')
+            .populate('departmentId', 'name')
+            .sort({ createdAt: -1 });
+
+        res.json(lectures);
+    } catch (error) {
+        console.error('HOD lectures fetch error:', error);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// @route   POST /api/hod/lectures
+// @desc    Create a new lecture assignment
+router.post('/lectures', async (req, res) => {
+    try {
+        const { subjectId, teacherId, classId, type } = req.body;
+        const departmentId = req.departmentId;
+
+        // Verify subject exists
+        const subject = await Subject.findById(subjectId);
+        if (!subject) {
+            return res.status(400).json({ message: 'Subject not found' });
+        }
+
+        // Verify teacher is in department
+        const teacher = await User.findById(teacherId);
+        if (!teacher || teacher.departmentId?.toString() !== departmentId.toString()) {
+            return res.status(400).json({ message: 'Teacher must be from your department' });
+        }
+
+        // Verify class is in department
+        const cls = await Class.findById(classId);
+        if (!cls || cls.departmentId.toString() !== departmentId.toString()) {
+            return res.status(400).json({ message: 'Class must be from your department' });
+        }
+
+        // Check for duplicate
+        const existing = await Lecture.findOne({ subjectId, teacherId, classId, type, departmentId });
+        if (existing) {
+            return res.status(400).json({ message: 'This lecture assignment already exists' });
+        }
+
+        const lecture = new Lecture({
+            subjectId,
+            teacherId,
+            classId,
+            type,
+            departmentId
+        });
+
+        await lecture.save();
+
+        const populated = await Lecture.findById(lecture._id)
+            .populate('subjectId', 'name code')
+            .populate('teacherId', 'fullName username')
+            .populate('classId', 'name year')
+            .populate('departmentId', 'name');
+
+        res.status(201).json(populated);
+    } catch (error) {
+        console.error('HOD lecture create error:', error);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// @route   PUT /api/hod/lectures/:id
+// @desc    Update a lecture assignment
+router.put('/lectures/:id', async (req, res) => {
+    try {
+        const { subjectId, teacherId, classId, type } = req.body;
+        const departmentId = req.departmentId;
+
+        // Verify lecture exists and belongs to department
+        const existingLecture = await Lecture.findById(req.params.id);
+        if (!existingLecture || existingLecture.departmentId.toString() !== departmentId.toString()) {
+            return res.status(403).json({ message: 'Can only update lectures in your department' });
+        }
+
+        // Verify class is in department
+        const cls = await Class.findById(classId);
+        if (!cls || cls.departmentId.toString() !== departmentId.toString()) {
+            return res.status(400).json({ message: 'Class must be from your department' });
+        }
+
+        // Verify teacher is in department
+        const teacher = await User.findById(teacherId);
+        if (!teacher || teacher.departmentId?.toString() !== departmentId.toString()) {
+            return res.status(400).json({ message: 'Teacher must be from your department' });
+        }
+
+        // Check for duplicate (excluding current)
+        const duplicate = await Lecture.findOne({
+            subjectId, teacherId, classId, type, departmentId,
+            _id: { $ne: req.params.id }
+        });
+        if (duplicate) {
+            return res.status(400).json({ message: 'This lecture assignment already exists' });
+        }
+
+        const lecture = await Lecture.findByIdAndUpdate(
+            req.params.id,
+            { subjectId, teacherId, classId, type },
+            { new: true }
+        )
+            .populate('subjectId', 'name code')
+            .populate('teacherId', 'fullName username')
+            .populate('classId', 'name year')
+            .populate('departmentId', 'name');
+
+        res.json(lecture);
+    } catch (error) {
+        console.error('HOD lecture update error:', error);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// @route   DELETE /api/hod/lectures/:id
+// @desc    Delete a lecture assignment
+router.delete('/lectures/:id', async (req, res) => {
+    try {
+        const departmentId = req.departmentId;
+
+        const lecture = await Lecture.findById(req.params.id);
+        if (!lecture || lecture.departmentId.toString() !== departmentId.toString()) {
+            return res.status(403).json({ message: 'Can only delete lectures in your department' });
+        }
+
+        await Lecture.findByIdAndDelete(req.params.id);
+        res.json({ message: 'Lecture deleted successfully' });
+    } catch (error) {
+        console.error('HOD lecture delete error:', error);
         res.status(500).json({ message: 'Server error' });
     }
 });

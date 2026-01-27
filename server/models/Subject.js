@@ -26,6 +26,12 @@ const subjectSchema = new mongoose.Schema({
         trim: true,
         uppercase: true
     },
+    year: {
+        type: Number,
+        min: 1,
+        max: 4,
+        required: true
+    },
     departmentId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Department'

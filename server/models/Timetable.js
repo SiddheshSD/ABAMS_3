@@ -5,6 +5,10 @@ const timetableSchema = new mongoose.Schema({
         ref: 'Class',
         required: true
     },
+    lectureId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Lecture'
+    },
     subject: {
         type: String,
         required: true,

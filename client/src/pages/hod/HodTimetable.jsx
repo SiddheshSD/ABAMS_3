@@ -6,8 +6,7 @@ const HodTimetable = () => {
     const [timetables, setTimetables] = useState([]);
     const [otherTimetables, setOtherTimetables] = useState([]);
     const [classes, setClasses] = useState([]);
-    const [subjects, setSubjects] = useState([]);
-    const [teachers, setTeachers] = useState([]);
+    const [lectures, setLectures] = useState([]);
     const [timeSlots, setTimeSlots] = useState([]);
     const [rooms, setRooms] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -21,8 +20,14 @@ const HodTimetable = () => {
     const fileInputRef = useRef(null);
 
     const [formData, setFormData] = useState({
-        classId: '', subject: '', teacherId: '', day: 'Monday',
-        timeSlotId: '', roomId: '', type: 'lecture'
+        lectureId: '',
+        classId: '',
+        subject: '',
+        teacherId: '',
+        day: 'Monday',
+        timeSlotId: '',
+        roomId: '',
+        type: 'lecture'
     });
 
     const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -39,18 +44,16 @@ const HodTimetable = () => {
 
     const fetchData = async () => {
         try {
-            const [classesRes, teachersRes, slotsRes, roomsRes, subjectsRes] = await Promise.all([
+            const [classesRes, lecturesRes, slotsRes, roomsRes] = await Promise.all([
                 api.get('/hod/classes'),
-                api.get('/hod/teachers'),
+                api.get('/hod/lectures'),
                 api.get('/timeslots'),
-                api.get('/rooms'),
-                api.get('/subjects')
+                api.get('/rooms')
             ]);
             setClasses(classesRes.data);
-            setTeachers(teachersRes.data);
+            setLectures(lecturesRes.data);
             setTimeSlots(slotsRes.data);
             setRooms(roomsRes.data);
-            setSubjects(subjectsRes.data);
 
             if (classesRes.data.length > 0) {
                 setSelectedClass(classesRes.data[0]._id);
@@ -80,9 +83,40 @@ const HodTimetable = () => {
         }
     };
 
+    // Filter lectures for the currently selected class
+    const getClassLectures = () => {
+        return lectures.filter(l => l.classId?._id === selectedClass);
+    };
+
+    const handleLectureChange = (lectureId) => {
+        if (lectureId) {
+            const lecture = lectures.find(l => l._id === lectureId);
+            if (lecture) {
+                setFormData({
+                    ...formData,
+                    lectureId: lectureId,
+                    classId: lecture.classId?._id || selectedClass,
+                    subject: lecture.subjectId?.name || '',
+                    teacherId: lecture.teacherId?._id || '',
+                    type: lecture.type || 'lecture'
+                });
+                return;
+            }
+        }
+        // Reset if no lecture selected
+        setFormData({
+            ...formData,
+            lectureId: '',
+            subject: '',
+            teacherId: '',
+            type: 'lecture'
+        });
+    };
+
     const openAddModal = (day = 'Monday', slotId = '') => {
         setEditingEntry(null);
         setFormData({
+            lectureId: '',
             classId: selectedClass,
             subject: '',
             teacherId: '',
@@ -97,6 +131,7 @@ const HodTimetable = () => {
     const handleEdit = (entry) => {
         setEditingEntry(entry);
         setFormData({
+            lectureId: entry.lectureId?._id || '',
             classId: entry.classId?._id || selectedClass,
             subject: entry.subject,
             teacherId: entry.teacherId?._id || '',
@@ -121,10 +156,21 @@ const HodTimetable = () => {
     const handleSubmit = async (e) => {
         e.preventDefault();
         try {
+            const submitData = {
+                classId: formData.classId,
+                subject: formData.subject,
+                teacherId: formData.teacherId,
+                day: formData.day,
+                timeSlotId: formData.timeSlotId,
+                roomId: formData.roomId,
+                type: formData.type,
+                lectureId: formData.lectureId || undefined
+            };
+
             if (editingEntry) {
-                await api.put(`/hod/timetables/${editingEntry._id}`, formData);
+                await api.put(`/hod/timetables/${editingEntry._id}`, submitData);
             } else {
-                await api.post('/hod/timetables', formData);
+                await api.post('/hod/timetables', submitData);
             }
             setShowModal(false);
             fetchTimetables();
@@ -351,30 +397,38 @@ const HodTimetable = () => {
             >
                 <form onSubmit={handleSubmit}>
                     <div className="form-group">
-                        <label className="form-label">Subject *</label>
+                        <label className="form-label">Select Lecture *</label>
                         <select
-                            value={formData.subject}
-                            onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
+                            value={formData.lectureId}
+                            onChange={(e) => handleLectureChange(e.target.value)}
                             required
                         >
-                            <option value="">Select Subject</option>
-                            {subjects.map(sub => (
-                                <option key={sub._id} value={sub.name}>
-                                    {sub.name} ({sub.code})
+                            <option value="">Select a Lecture</option>
+                            {getClassLectures().map(lecture => (
+                                <option key={lecture._id} value={lecture._id}>
+                                    {lecture.subjectId?.name} - {lecture.teacherId?.fullName} ({lecture.type})
                                 </option>
                             ))}
                         </select>
                         <small style={{ color: 'var(--gray-500)', marginTop: '4px', display: 'block' }}>
-                            Or type custom:
-                            <input
-                                type="text"
-                                value={formData.subject}
-                                onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
-                                placeholder="Custom subject name"
-                                style={{ marginLeft: '8px', width: '60%' }}
-                            />
+                            Lectures are created in the Lectures section. Select one to schedule.
                         </small>
                     </div>
+
+                    {formData.lectureId && (
+                        <div style={{
+                            background: 'var(--gray-50)',
+                            padding: '12px',
+                            borderRadius: '8px',
+                            marginBottom: '16px',
+                            fontSize: '14px'
+                        }}>
+                            <strong>Selected Lecture Details:</strong><br />
+                            <span>Subject: {formData.subject}</span><br />
+                            <span>Type: {formData.type === 'lecture' ? '📚 Lecture' : '🔬 Practical'}</span>
+                        </div>
+                    )}
+
                     <div className="form-row">
                         <div className="form-group">
                             <label className="form-label">Day *</label>
@@ -403,44 +457,19 @@ const HodTimetable = () => {
                             </select>
                         </div>
                     </div>
-                    <div className="form-row">
-                        <div className="form-group">
-                            <label className="form-label">Teacher *</label>
-                            <select
-                                value={formData.teacherId}
-                                onChange={(e) => setFormData({ ...formData, teacherId: e.target.value })}
-                                required
-                            >
-                                <option value="">Select Teacher</option>
-                                {teachers.map(t => (
-                                    <option key={t._id} value={t._id}>{t.fullName}</option>
-                                ))}
-                            </select>
-                        </div>
-                        <div className="form-group">
-                            <label className="form-label">Room *</label>
-                            <select
-                                value={formData.roomId}
-                                onChange={(e) => setFormData({ ...formData, roomId: e.target.value })}
-                                required
-                            >
-                                <option value="">Select Room</option>
-                                {rooms.map(r => (
-                                    <option key={r._id} value={r._id}>
-                                        {r.roomNumber || r.name} ({r.roomType || r.type})
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
-                    </div>
                     <div className="form-group">
-                        <label className="form-label">Type *</label>
+                        <label className="form-label">Room *</label>
                         <select
-                            value={formData.type}
-                            onChange={(e) => setFormData({ ...formData, type: e.target.value })}
+                            value={formData.roomId}
+                            onChange={(e) => setFormData({ ...formData, roomId: e.target.value })}
+                            required
                         >
-                            <option value="lecture">Lecture</option>
-                            <option value="practical">Practical</option>
+                            <option value="">Select Room</option>
+                            {rooms.map(r => (
+                                <option key={r._id} value={r._id}>
+                                    {r.roomNumber || r.name} ({r.roomType || r.type})
+                                </option>
+                            ))}
                         </select>
                     </div>
                 </form>

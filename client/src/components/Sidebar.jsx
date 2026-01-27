@@ -7,10 +7,12 @@ const Sidebar = ({ collapsed, mobileOpen, onMobileClose }) => {
     // Admin navigation items
     const adminNavItems = [
         { path: '/dashboard', icon: '📊', label: 'Dashboard' },
-        { path: '/users', icon: '👥', label: 'Users' },
+        { path: '/students', icon: '👨‍🎓', label: 'Students' },
+        { path: '/teachers', icon: '👨‍🏫', label: 'Teachers' },
         { path: '/departments', icon: '🏢', label: 'Departments' },
         { path: '/classes', icon: '📚', label: 'Classes' },
         { path: '/subjects', icon: '📖', label: 'Subjects' },
+        { path: '/lectures', icon: '🎯', label: 'Lectures' },
         { path: '/timetable', icon: '📅', label: 'Timetable' },
         { path: '/rooms', icon: '🚪', label: 'Classrooms' },
         { path: '/timeslots', icon: '⏰', label: 'Time Slots' },
@@ -22,6 +24,7 @@ const Sidebar = ({ collapsed, mobileOpen, onMobileClose }) => {
         { path: '/hod/attendance', icon: '📋', label: 'Attendance' },
         { path: '/hod/students', icon: '👨‍🎓', label: 'Students' },
         { path: '/hod/teachers', icon: '👨‍🏫', label: 'Teachers' },
+        { path: '/hod/lectures', icon: '📖', label: 'Lectures' },
         { path: '/hod/classes', icon: '📚', label: 'Classes' },
         { path: '/hod/timetable', icon: '📅', label: 'Timetable' },
         { path: '/hod/leave-requests', icon: '📝', label: 'Leave Requests' },

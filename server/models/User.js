@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
+
 const userSchema = new mongoose.Schema({
     firstName: {
         type: String,
@@ -13,6 +14,10 @@ const userSchema = new mongoose.Schema({
     lastName: {
         type: String,
         required: true,
+        trim: true
+    },
+    motherName: {
+        type: String,
         trim: true
     },
     fullName: {
@@ -29,10 +34,20 @@ const userSchema = new mongoose.Schema({
         type: String,
         required: true
     },
+    // Changed from single role to roles array for multi-role support
+    roles: [{
+        type: String,
+        enum: ['admin', 'hod', 'classcoordinator', 'teacher', 'student', 'parent']
+    }],
+    // For backward compatibility - computed from roles array
     role: {
         type: String,
-        enum: ['admin', 'hod', 'classcoordinator', 'teacher', 'student', 'parent'],
-        required: true
+        enum: ['admin', 'hod', 'classcoordinator', 'teacher', 'student', 'parent']
+    },
+    // Active role for current session (set during login)
+    activeRole: {
+        type: String,
+        enum: ['admin', 'hod', 'classcoordinator', 'teacher', 'student', 'parent']
     },
     dob: {
         type: Date
@@ -45,6 +60,15 @@ const userSchema = new mongoose.Schema({
         type: String,
         trim: true
     },
+    gender: {
+        type: String,
+        enum: ['male', 'female', 'other']
+    },
+    year: {
+        type: Number,
+        min: 1,
+        max: 4
+    },
     departmentId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Department'
@@ -52,6 +76,25 @@ const userSchema = new mongoose.Schema({
     classId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Class'
+    },
+    // For parent users - link to their child (student)
+    childUserId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
+    },
+    // For student users - link to their parent
+    parentId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
+    },
+    // Parent contact info (stored on student record)
+    parentPhone: {
+        type: String,
+        trim: true
+    },
+    parentEmail: {
+        type: String,
+        trim: true
     },
     mustChangePassword: {
         type: Boolean,
@@ -66,10 +109,21 @@ const userSchema = new mongoose.Schema({
         default: Date.now
     }
 });
+
 // Generate fullName before saving
 userSchema.pre('save', async function (next) {
     // Generate fullName from parts
     this.fullName = [this.firstName, this.fatherName, this.lastName].filter(Boolean).join(' ');
+
+    // If roles array is set but role is not, set role to first role
+    if (this.roles && this.roles.length > 0 && !this.role) {
+        this.role = this.roles[0];
+    }
+
+    // If role is set but roles array is empty, populate roles
+    if (this.role && (!this.roles || this.roles.length === 0)) {
+        this.roles = [this.role];
+    }
 
     // Hash password if modified
     if (this.isModified('password')) {
@@ -77,8 +131,15 @@ userSchema.pre('save', async function (next) {
     }
     next();
 });
+
 // Compare password method
 userSchema.methods.comparePassword = async function (candidatePassword) {
     return await bcrypt.compare(candidatePassword, this.password);
 };
+
+// Check if user has a specific role
+userSchema.methods.hasRole = function (role) {
+    return this.roles && this.roles.includes(role);
+};
+
 module.exports = mongoose.model('User', userSchema);

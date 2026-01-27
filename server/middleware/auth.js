@@ -17,6 +17,8 @@ const auth = async (req, res, next) => {
         }
 
         req.user = user;
+        // Use activeRole from token if available, else user's activeRole or first role
+        req.activeRole = decoded.activeRole || user.activeRole || user.role;
         next();
     } catch (error) {
         res.status(401).json({ message: 'Token is not valid' });
@@ -24,7 +26,9 @@ const auth = async (req, res, next) => {
 };
 
 const adminOnly = (req, res, next) => {
-    if (req.user.role !== 'admin') {
+    // Check activeRole for admin access
+    const activeRole = req.activeRole || req.user.role;
+    if (activeRole !== 'admin') {
         return res.status(403).json({ message: 'Access denied. Admin only.' });
     }
     next();
@@ -32,7 +36,9 @@ const adminOnly = (req, res, next) => {
 
 const roles = (...allowedRoles) => {
     return (req, res, next) => {
-        if (!allowedRoles.includes(req.user.role)) {
+        // Check if user's active role is in allowed roles
+        const activeRole = req.activeRole || req.user.role;
+        if (!allowedRoles.includes(activeRole)) {
             return res.status(403).json({ message: 'Access denied.' });
         }
         next();

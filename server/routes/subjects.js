@@ -45,7 +45,7 @@ router.get('/:id', auth, async (req, res) => {
 // @desc    Create subject (admin only)
 router.post('/', auth, adminOnly, async (req, res) => {
     try {
-        const { name, code, type, practicalName, practicalCode, departmentId } = req.body;
+        const { name, code, type, practicalName, practicalCode, departmentId, year } = req.body;
 
         // Check if code already exists
         const existing = await Subject.findOne({
@@ -63,6 +63,7 @@ router.post('/', auth, adminOnly, async (req, res) => {
             type: type || 'theory',
             practicalName: practicalName || '',
             practicalCode: practicalCode ? practicalCode.toUpperCase() : '',
+            year: year || 1,
             departmentId: departmentId || null
         });
 
@@ -82,7 +83,7 @@ router.post('/', auth, adminOnly, async (req, res) => {
 // @desc    Update subject
 router.put('/:id', auth, adminOnly, async (req, res) => {
     try {
-        const { name, code, type, practicalName, practicalCode, departmentId, isActive } = req.body;
+        const { name, code, type, practicalName, practicalCode, departmentId, year, isActive } = req.body;
 
         // Check if code already exists (excluding current)
         const existing = await Subject.findOne({
@@ -103,6 +104,7 @@ router.put('/:id', auth, adminOnly, async (req, res) => {
                 type: type || 'theory',
                 practicalName: practicalName || '',
                 practicalCode: practicalCode ? practicalCode.toUpperCase() : '',
+                year: year || 1,
                 departmentId: departmentId || null,
                 isActive: isActive !== undefined ? isActive : true
             },
