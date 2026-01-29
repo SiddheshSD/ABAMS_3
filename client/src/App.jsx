@@ -14,6 +14,7 @@ import Rooms from './pages/Rooms';
 import TimeSlots from './pages/TimeSlots';
 import Timetable from './pages/Timetable';
 import Subjects from './pages/Subjects';
+import TestTypes from './pages/TestTypes';
 import PlaceholderDashboard from './pages/PlaceholderDashboard';
 
 // HOD Pages
@@ -26,6 +27,16 @@ import HodTimetable from './pages/hod/HodTimetable';
 import HodLeaveRequests from './pages/hod/HodLeaveRequests';
 import HodComplaints from './pages/hod/HodComplaints';
 import HodLectures from './pages/hod/HodLectures';
+
+// Teacher Pages
+import TeacherDashboard from './pages/teacher/TeacherDashboard';
+import TeacherAttendance from './pages/teacher/TeacherAttendance';
+import TeacherAttendanceSheet from './pages/teacher/TeacherAttendanceSheet';
+import TeacherTests from './pages/teacher/TeacherTests';
+import TeacherTestSheet from './pages/teacher/TeacherTestSheet';
+import TeacherTimetable from './pages/teacher/TeacherTimetable';
+import TeacherLeaveRequests from './pages/teacher/TeacherLeaveRequests';
+import TeacherComplaints from './pages/teacher/TeacherComplaints';
 
 import './index.css';
 
@@ -70,12 +81,27 @@ const HodRoute = ({ children }) => {
   return children;
 };
 
+// Teacher Only Route
+const TeacherRoute = ({ children }) => {
+  const { user } = useAuth();
+
+  if (user?.role !== 'teacher' && user?.role !== 'classcoordinator') {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  return children;
+};
+
 // Smart Dashboard - redirects based on role
 const SmartDashboard = () => {
   const { user } = useAuth();
 
   if (user?.role === 'hod') {
     return <Navigate to="/hod/dashboard" replace />;
+  }
+
+  if (user?.role === 'teacher' || user?.role === 'classcoordinator') {
+    return <Navigate to="/teacher/dashboard" replace />;
   }
 
   return <Dashboard />;
@@ -108,6 +134,7 @@ function App() {
             <Route path="timeslots" element={<AdminRoute><TimeSlots /></AdminRoute>} />
             <Route path="timetable" element={<AdminRoute><Timetable /></AdminRoute>} />
             <Route path="subjects" element={<AdminRoute><Subjects /></AdminRoute>} />
+            <Route path="test-types" element={<AdminRoute><TestTypes /></AdminRoute>} />
 
             {/* HOD Routes */}
             <Route path="hod/dashboard" element={<HodRoute><HodDashboard /></HodRoute>} />
@@ -119,6 +146,16 @@ function App() {
             <Route path="hod/timetable" element={<HodRoute><HodTimetable /></HodRoute>} />
             <Route path="hod/leave-requests" element={<HodRoute><HodLeaveRequests /></HodRoute>} />
             <Route path="hod/complaints" element={<HodRoute><HodComplaints /></HodRoute>} />
+
+            {/* Teacher Routes */}
+            <Route path="teacher/dashboard" element={<TeacherRoute><TeacherDashboard /></TeacherRoute>} />
+            <Route path="teacher/attendance" element={<TeacherRoute><TeacherAttendance /></TeacherRoute>} />
+            <Route path="teacher/attendance/:classId/:subject" element={<TeacherRoute><TeacherAttendanceSheet /></TeacherRoute>} />
+            <Route path="teacher/tests" element={<TeacherRoute><TeacherTests /></TeacherRoute>} />
+            <Route path="teacher/tests/:classId/:subject" element={<TeacherRoute><TeacherTestSheet /></TeacherRoute>} />
+            <Route path="teacher/timetable" element={<TeacherRoute><TeacherTimetable /></TeacherRoute>} />
+            <Route path="teacher/leave-requests" element={<TeacherRoute><TeacherLeaveRequests /></TeacherRoute>} />
+            <Route path="teacher/complaints" element={<TeacherRoute><TeacherComplaints /></TeacherRoute>} />
           </Route>
 
           <Route path="*" element={<Navigate to="/login" replace />} />
@@ -129,3 +166,4 @@ function App() {
 }
 
 export default App;
+

@@ -6,6 +6,18 @@ const attendanceSchema = new mongoose.Schema({
         ref: 'Class',
         required: true
     },
+    subject: {
+        type: String,
+        trim: true
+    },
+    teacherId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
+    },
+    timeSlotId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'TimeSlot'
+    },
     date: {
         type: Date,
         required: true
@@ -44,7 +56,7 @@ const attendanceSchema = new mongoose.Schema({
     }
 });
 
-// Compound index to prevent duplicate entries for same class and date
-attendanceSchema.index({ classId: 1, date: 1 }, { unique: true });
+// Compound index to prevent duplicate entries for same class, subject, date, and timeSlot
+attendanceSchema.index({ classId: 1, subject: 1, date: 1, timeSlotId: 1 }, { unique: true });
 
 module.exports = mongoose.model('Attendance', attendanceSchema);

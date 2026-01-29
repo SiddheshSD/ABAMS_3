@@ -10,7 +10,9 @@ const Layout = () => {
 
     const getPageTitle = () => {
         const path = location.pathname;
-        const titles = {
+
+        // Exact match titles
+        const exactTitles = {
             '/dashboard': 'Dashboard',
             '/users': 'User Management',
             '/departments': 'Departments',
@@ -18,9 +20,39 @@ const Layout = () => {
             '/timetable': 'Timetable',
             '/rooms': 'Classrooms & Labs',
             '/timeslots': 'Time Slots',
-            '/profile': 'Profile'
+            '/students': 'Students',
+            '/teachers': 'Teachers',
+            '/lectures': 'Lectures',
+            '/subjects': 'Subjects',
+            '/test-types': 'Test Types',
+            '/profile': 'Profile',
+            // HOD titles
+            '/hod/dashboard': 'HOD Dashboard',
+            '/hod/attendance': 'Attendance',
+            '/hod/students': 'Students',
+            '/hod/teachers': 'Teachers',
+            '/hod/lectures': 'Lectures',
+            '/hod/classes': 'Classes',
+            '/hod/timetable': 'Timetable',
+            '/hod/leave-requests': 'Leave Requests',
+            '/hod/complaints': 'Complaints',
+            // Teacher titles
+            '/teacher/dashboard': 'Teacher Dashboard',
+            '/teacher/attendance': 'Attendance',
+            '/teacher/tests': 'Tests',
+            '/teacher/timetable': 'My Timetable',
+            '/teacher/leave-requests': 'Leave Requests',
+            '/teacher/complaints': 'Complaints',
         };
-        return titles[path] || 'Dashboard';
+
+        // Check exact match first
+        if (exactTitles[path]) return exactTitles[path];
+
+        // Handle nested routes (e.g., /teacher/attendance/:classId/:subject)
+        if (path.startsWith('/teacher/attendance/')) return 'Attendance Sheet';
+        if (path.startsWith('/teacher/tests/')) return 'Test Sheet';
+
+        return 'Dashboard';
     };
 
     const handleToggle = () => {

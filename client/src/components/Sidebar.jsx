@@ -12,6 +12,7 @@ const Sidebar = ({ collapsed, mobileOpen, onMobileClose }) => {
         { path: '/departments', icon: '🏢', label: 'Departments' },
         { path: '/classes', icon: '📚', label: 'Classes' },
         { path: '/subjects', icon: '📖', label: 'Subjects' },
+        { path: '/test-types', icon: '📝', label: 'Test Types' },
         { path: '/lectures', icon: '🎯', label: 'Lectures' },
         { path: '/timetable', icon: '📅', label: 'Timetable' },
         { path: '/rooms', icon: '🚪', label: 'Classrooms' },
@@ -31,8 +32,30 @@ const Sidebar = ({ collapsed, mobileOpen, onMobileClose }) => {
         { path: '/hod/complaints', icon: '📢', label: 'Complaints' },
     ];
 
+    // Teacher navigation items
+    const teacherNavItems = [
+        { path: '/teacher/dashboard', icon: '📊', label: 'Dashboard' },
+        { path: '/teacher/attendance', icon: '📋', label: 'Attendance' },
+        { path: '/teacher/tests', icon: '📝', label: 'Tests' },
+        { path: '/teacher/timetable', icon: '📅', label: 'Timetable' },
+        { path: '/teacher/leave-requests', icon: '🏖️', label: 'Leave Requests' },
+        { path: '/teacher/complaints', icon: '📢', label: 'Complaints' },
+    ];
+
     // Select nav items based on user role
-    const navItems = user?.role === 'hod' ? hodNavItems : adminNavItems;
+    const getNavItems = () => {
+        switch (user?.role) {
+            case 'hod':
+                return hodNavItems;
+            case 'teacher':
+            case 'classcoordinator':
+                return teacherNavItems;
+            default:
+                return adminNavItems;
+        }
+    };
+
+    const navItems = getNavItems();
 
     return (
         <>
