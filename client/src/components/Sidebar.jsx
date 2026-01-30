@@ -42,14 +42,50 @@ const Sidebar = ({ collapsed, mobileOpen, onMobileClose }) => {
         { path: '/teacher/complaints', icon: '📢', label: 'Complaints' },
     ];
 
+    // Student navigation items
+    const studentNavItems = [
+        { path: '/student/dashboard', icon: '📊', label: 'Dashboard' },
+        { path: '/student/timetable', icon: '📅', label: 'Timetable' },
+        { path: '/student/attendance', icon: '📋', label: 'Attendance' },
+        { path: '/student/tests', icon: '📝', label: 'Test Scores' },
+        { path: '/student/leave-requests', icon: '🏖️', label: 'Leave Requests' },
+        { path: '/student/complaints', icon: '📢', label: 'Complaints' },
+    ];
+
+    // Parent navigation items
+    const parentNavItems = [
+        { path: '/parent/dashboard', icon: '📊', label: 'Dashboard' },
+        { path: '/parent/timetable', icon: '📅', label: 'Timetable' },
+        { path: '/parent/attendance', icon: '📋', label: 'Attendance' },
+        { path: '/parent/tests', icon: '📝', label: 'Test Scores' },
+        { path: '/parent/leave-requests', icon: '🏖️', label: 'Leave Requests' },
+        { path: '/parent/complaints', icon: '📢', label: 'Complaints' },
+    ];
+
+    // Class Coordinator navigation items
+    const ccNavItems = [
+        { path: '/cc/dashboard', icon: '📊', label: 'Dashboard' },
+        { path: '/cc/timetable', icon: '📅', label: 'Timetable' },
+        { path: '/cc/attendance', icon: '📋', label: 'Attendance' },
+        { path: '/cc/tests', icon: '📝', label: 'Test Scores' },
+        { path: '/cc/students', icon: '👨‍🎓', label: 'Students' },
+        { path: '/cc/leave-requests', icon: '🏖️', label: 'Leave Requests' },
+        { path: '/cc/complaints', icon: '📢', label: 'Complaints' },
+    ];
+
     // Select nav items based on user role
     const getNavItems = () => {
         switch (user?.role) {
             case 'hod':
                 return hodNavItems;
             case 'teacher':
-            case 'classcoordinator':
                 return teacherNavItems;
+            case 'classcoordinator':
+                return ccNavItems;
+            case 'student':
+                return studentNavItems;
+            case 'parent':
+                return parentNavItems;
             default:
                 return adminNavItems;
         }

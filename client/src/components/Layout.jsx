@@ -43,6 +43,20 @@ const Layout = () => {
             '/teacher/timetable': 'My Timetable',
             '/teacher/leave-requests': 'Leave Requests',
             '/teacher/complaints': 'Complaints',
+            // Student titles
+            '/student/dashboard': 'Student Dashboard',
+            '/student/timetable': 'Class Timetable',
+            '/student/attendance': 'My Attendance',
+            '/student/tests': 'Test Scores',
+            '/student/leave-requests': 'Leave Requests',
+            '/student/complaints': 'Complaints',
+            // Parent titles
+            '/parent/dashboard': 'Parent Dashboard',
+            '/parent/timetable': 'Class Timetable',
+            '/parent/attendance': 'Attendance',
+            '/parent/tests': 'Test Scores',
+            '/parent/leave-requests': 'Leave Requests',
+            '/parent/complaints': 'Complaints',
         };
 
         // Check exact match first

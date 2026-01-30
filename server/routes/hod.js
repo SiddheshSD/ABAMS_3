@@ -314,10 +314,13 @@ router.post('/students/bulk-assign', upload.single('file'), async (req, res) => 
 
         for (const row of data) {
             try {
-                const { studentId, username, className } = row;
+                // Support both new format (Current Class) and old format (className)
+                const studentId = row.studentId || row['Student ID'];
+                const username = row.username || row.Username;
+                const className = row.className || row['Current Class'] || row['Class Name'];
 
                 if (!className) {
-                    results.failed.push({ row, error: 'Missing className' });
+                    results.failed.push({ row, error: 'Missing class name (use "Current Class" or "className" column)' });
                     continue;
                 }
 
@@ -326,7 +329,7 @@ router.post('/students/bulk-assign', upload.single('file'), async (req, res) => 
                 if (studentId) {
                     student = await User.findById(studentId);
                 } else if (username) {
-                    student = await User.findOne({ username: username.toLowerCase() });
+                    student = await User.findOne({ username: username.toString().toLowerCase() });
                 } else {
                     results.failed.push({ row, error: 'Missing studentId or username' });
                     continue;
@@ -338,7 +341,7 @@ router.post('/students/bulk-assign', upload.single('file'), async (req, res) => 
                 }
 
                 // Find class
-                const classId = classMap[className.toLowerCase()];
+                const classId = classMap[className.toString().toLowerCase()];
                 if (!classId) {
                     results.failed.push({ row, error: 'Class not found in department' });
                     continue;

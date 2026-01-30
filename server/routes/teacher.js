@@ -413,7 +413,9 @@ router.post('/attendance', async (req, res) => {
     } catch (error) {
         console.error('Create attendance error:', error);
         if (error.code === 11000) {
-            return res.status(400).json({ message: 'Duplicate attendance entry' });
+            return res.status(400).json({
+                message: 'Attendance already exists for this class, subject, date, and time slot. Please choose a different time slot or edit the existing record.'
+            });
         }
         res.status(500).json({ message: 'Server error' });
     }

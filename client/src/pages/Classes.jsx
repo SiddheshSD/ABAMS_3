@@ -25,7 +25,7 @@ const Classes = () => {
             const [classesRes, deptsRes, usersRes] = await Promise.all([
                 api.get('/classes'),
                 api.get('/departments'),
-                api.get('/users?role=classcoordinator') // Only fetch class coordinators
+                api.get('/users?role=teacher') // Fetch teachers to assign as coordinators
             ]);
             setClasses(classesRes.data);
             setDepartments(deptsRes.data);
@@ -202,7 +202,7 @@ const Classes = () => {
                         </select>
                         {coordinators.length === 0 && (
                             <p style={{ fontSize: '12px', color: 'var(--warning)', marginTop: '4px' }}>
-                                ⚠️ No class coordinators found. Add users with "Class Coordinator" role first.
+                                ⚠️ No teachers found. Add users with "Teacher" role first.
                             </p>
                         )}
                     </div>

@@ -63,22 +63,24 @@ const TeacherAttendanceSheet = () => {
     };
 
     const handleStatusToggle = (studentId, isNew = true) => {
+        const targetId = studentId.toString();
         if (isNew) {
             setNewAttendance(prev => ({
                 ...prev,
                 records: prev.records.map(r =>
-                    r.studentId === studentId
+                    r.studentId?.toString() === targetId
                         ? { ...r, status: r.status === 'present' ? 'absent' : 'present' }
                         : r
                 )
             }));
         } else {
             setEditRecords(prev =>
-                prev.map(r =>
-                    r.studentId === studentId || r.studentId?._id === studentId
+                prev.map(r => {
+                    const recordStudentId = (r.studentId?._id || r.studentId)?.toString();
+                    return recordStudentId === targetId
                         ? { ...r, status: r.status === 'present' ? 'absent' : 'present' }
-                        : r
-                )
+                        : r;
+                })
             );
         }
     };
@@ -114,7 +116,19 @@ const TeacherAttendanceSheet = () => {
 
     const handleEdit = (record) => {
         setEditingId(record._id);
-        setEditRecords([...record.records]);
+        // Build edit records for all current students, preserving existing statuses
+        const existingRecords = record.records || [];
+        const allStudentRecords = students.map(student => {
+            // Find existing record for this student
+            const existing = existingRecords.find(r =>
+                (r.studentId?._id || r.studentId) === student._id
+            );
+            return {
+                studentId: student._id,
+                status: existing?.status || 'present'
+            };
+        });
+        setEditRecords(allStudentRecords);
     };
 
     const handleSaveEdit = async () => {

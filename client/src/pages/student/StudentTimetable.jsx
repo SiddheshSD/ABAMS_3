@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
 import api from '../../services/api';
 
-const TeacherTimetable = () => {
+const StudentTimetable = () => {
     const [timetable, setTimetable] = useState([]);
     const [timeSlots, setTimeSlots] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState('');
 
     const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
@@ -15,13 +16,21 @@ const TeacherTimetable = () => {
     const fetchData = async () => {
         try {
             const [timetableResponse, timeSlotsResponse] = await Promise.all([
-                api.get('/teacher/timetable'),
+                api.get('/student/timetable'),
                 api.get('/timeslots')  // Use general endpoint to include break slots
             ]);
-            setTimetable(timetableResponse.data);
+
+            // Handle both response formats
+            if (timetableResponse.data.timetable) {
+                setTimetable(timetableResponse.data.timetable);
+            } else {
+                setTimetable(timetableResponse.data);
+            }
+
             setTimeSlots(timeSlotsResponse.data);
-        } catch (error) {
-            console.error('Failed to fetch timetable:', error);
+        } catch (err) {
+            console.error('Failed to fetch timetable:', err);
+            setError('Failed to fetch timetable');
         } finally {
             setLoading(false);
         }
@@ -30,7 +39,7 @@ const TeacherTimetable = () => {
     const getEntryForSlot = (day, slotId) => {
         return timetable.find(entry =>
             entry.day === day &&
-            (entry.timeSlotId?._id === slotId || entry.timeSlotId === slotId)
+            (entry.timeSlotId?._id === slotId || entry.timeSlot?._id === slotId || entry.timeSlotId === slotId)
         );
     };
 
@@ -42,13 +51,27 @@ const TeacherTimetable = () => {
         );
     }
 
+    if (error) {
+        return (
+            <div>
+                <div className="card">
+                    <div className="empty-state">
+                        <div className="empty-icon">❌</div>
+                        <h3>Error</h3>
+                        <p>{error}</p>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div>
             <div className="card">
                 <div className="card-header">
-                    <h2 className="card-title">📅 My Weekly Timetable</h2>
+                    <h2 className="card-title">📅 Weekly Timetable</h2>
                     <p style={{ margin: 0, color: 'var(--gray-500)', fontSize: '0.9rem' }}>
-                        Your teaching schedule for the week
+                        Your class schedule for the week
                     </p>
                 </div>
             </div>
@@ -130,10 +153,10 @@ const TeacherTimetable = () => {
                                                             >
                                                                 <strong>{entry.subject}</strong><br />
                                                                 <span style={{ color: 'var(--gray-600)' }}>
-                                                                    {entry.classId?.name || 'Class'}
+                                                                    {entry.teacher || entry.teacherId?.fullName || 'Teacher'}
                                                                 </span><br />
                                                                 <span style={{ color: 'var(--gray-500)' }}>
-                                                                    📍 {entry.roomId?.roomNumber || 'Room'}
+                                                                    📍 {entry.room || entry.roomId?.roomNumber || 'Room'}
                                                                 </span>
                                                                 <span style={{
                                                                     display: 'inline-block',
@@ -236,4 +259,4 @@ const TeacherTimetable = () => {
     );
 };
 
-export default TeacherTimetable;
+export default StudentTimetable;

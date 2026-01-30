@@ -12,6 +12,7 @@ const HodStudents = () => {
     const [showUploadModal, setShowUploadModal] = useState(false);
     const [uploadResult, setUploadResult] = useState(null);
     const [uploading, setUploading] = useState(false);
+    const [exporting, setExporting] = useState(false);
     const fileInputRef = useRef(null);
 
     useEffect(() => {
@@ -88,23 +89,101 @@ const HodStudents = () => {
     };
 
     const downloadTemplate = () => {
-        const template = 'studentId,username,className\n,student_username,Class Name\n';
-        const blob = new Blob([template], { type: 'text/csv' });
+        // Template format: Student Name | Username | Current Class | Year
+        const headers = ['Student Name', 'Username', 'Current Class', 'Year'];
+        const exampleRow = ['Example Student', 'student_username', 'Class-A', '1'];
+
+        const csvContent = [
+            headers.join(','),
+            exampleRow.join(',')
+        ].join('\n');
+
+        const blob = new Blob([csvContent], { type: 'text/csv' });
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
         a.download = 'student_class_assignment_template.csv';
         a.click();
+        window.URL.revokeObjectURL(url);
     };
+
+    const exportUnassignedStudents = async () => {
+        setExporting(true);
+        try {
+            // Get all students without filtering by class to include unassigned
+            const response = await api.get('/hod/students');
+            const allStudents = response.data;
+
+            // Filter to only unassigned students (no classId or classId is null)
+            const unassignedStudents = allStudents.filter(s => !s.classId);
+
+            if (unassignedStudents.length === 0) {
+                alert('No unassigned students found.');
+                setExporting(false);
+                return;
+            }
+
+            // Create Excel-compatible CSV with format: Student Name | Username | Current Class (blank) | Year
+            const headers = ['Student Name', 'Username', 'Current Class', 'Year'];
+            const rows = unassignedStudents.map(student => [
+                student.fullName || '',
+                student.username || '',
+                '', // Current Class - blank for unassigned
+                student.year || ''
+            ]);
+
+            const csvContent = [
+                headers.join(','),
+                ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
+            ].join('\n');
+
+            // Create and download the file
+            const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `unassigned_students_${new Date().toISOString().split('T')[0]}.csv`;
+            a.click();
+            window.URL.revokeObjectURL(url);
+        } catch (error) {
+            console.error('Failed to export students:', error);
+            alert('Failed to export students');
+        } finally {
+            setExporting(false);
+        }
+    };
+
+    // Count unassigned students
+    const unassignedCount = students.filter(s => !s.classId).length;
 
     return (
         <div>
             <div className="card">
                 <div className="card-header">
                     <h2 className="card-title">Student Management</h2>
-                    <button className="btn btn-primary" onClick={() => setShowUploadModal(true)}>
-                        📤 Bulk Assign Classes
-                    </button>
+                    <div className="header-actions" style={{ display: 'flex', gap: '8px' }}>
+                        <button
+                            className="btn btn-secondary"
+                            onClick={downloadTemplate}
+                            title="Download template for bulk assignment"
+                        >
+                            📥 Template
+                        </button>
+                        <button
+                            className="btn btn-secondary"
+                            onClick={exportUnassignedStudents}
+                            disabled={exporting}
+                            title="Export students not yet assigned to a class"
+                        >
+                            {exporting ? '⏳ Exporting...' : '📤 Export Unassigned'}
+                        </button>
+                        <button
+                            className="btn btn-primary"
+                            onClick={() => setShowUploadModal(true)}
+                        >
+                            📤 Bulk Assign
+                        </button>
+                    </div>
                 </div>
 
                 {/* Filters */}
@@ -144,6 +223,23 @@ const HodStudents = () => {
                     </div>
                 </div>
 
+                {/* Stats Bar */}
+                {unassignedCount > 0 && (
+                    <div style={{
+                        padding: '12px 24px',
+                        background: 'rgba(245, 158, 11, 0.1)',
+                        borderBottom: '1px solid rgba(245, 158, 11, 0.2)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px'
+                    }}>
+                        <span style={{ fontSize: '1.2rem' }}>⚠️</span>
+                        <span style={{ color: 'var(--warning)', fontWeight: '500' }}>
+                            {unassignedCount} student{unassignedCount > 1 ? 's' : ''} not yet assigned to a class
+                        </span>
+                    </div>
+                )}
+
                 {loading ? (
                     <div className="loading"><div className="spinner"></div></div>
                 ) : (
@@ -172,11 +268,11 @@ const HodStudents = () => {
                                             <td><strong>{student.fullName}</strong></td>
                                             <td>{student.username}</td>
                                             <td>
-                                                <span className="badge badge-primary">
+                                                <span className={`badge ${student.classId ? 'badge-primary' : 'badge-warning'}`}>
                                                     {student.classId?.name || 'Not Assigned'}
                                                 </span>
                                             </td>
-                                            <td>{student.classId?.year || '-'}</td>
+                                            <td>{student.classId?.year || student.year || '-'}</td>
                                             <td>
                                                 <button
                                                     className="btn btn-sm btn-secondary"
@@ -233,8 +329,27 @@ const HodStudents = () => {
                 <div className="upload-section">
                     <p style={{ marginBottom: '16px', color: 'var(--gray-600)' }}>
                         Upload an Excel/CSV file to assign students to classes in bulk.
-                        Required columns: <strong>studentId</strong> OR <strong>username</strong>, and <strong>className</strong>.
+                        Required columns: <strong>Username</strong> and <strong>Current Class</strong> (or Class Name).
                     </p>
+
+                    <div style={{
+                        background: 'var(--gray-50)',
+                        padding: '16px',
+                        borderRadius: '8px',
+                        marginBottom: '16px'
+                    }}>
+                        <strong style={{ fontSize: '14px', color: 'var(--gray-700)' }}>
+                            Expected Format:
+                        </strong>
+                        <div style={{
+                            marginTop: '8px',
+                            fontFamily: 'monospace',
+                            fontSize: '12px',
+                            color: 'var(--gray-600)'
+                        }}>
+                            Student Name | Username | Current Class | Year
+                        </div>
+                    </div>
 
                     <button className="btn btn-secondary" onClick={downloadTemplate} style={{ marginBottom: '16px' }}>
                         📥 Download Template

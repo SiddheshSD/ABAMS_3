@@ -38,6 +38,25 @@ import TeacherTimetable from './pages/teacher/TeacherTimetable';
 import TeacherLeaveRequests from './pages/teacher/TeacherLeaveRequests';
 import TeacherComplaints from './pages/teacher/TeacherComplaints';
 
+// Student Pages
+import StudentDashboard from './pages/student/StudentDashboard';
+import StudentTimetable from './pages/student/StudentTimetable';
+import StudentAttendance from './pages/student/StudentAttendance';
+import StudentTestScores from './pages/student/StudentTestScores';
+import StudentLeaveRequests from './pages/student/StudentLeaveRequests';
+import StudentComplaints from './pages/student/StudentComplaints';
+
+// Class Coordinator Pages
+import CCDashboard from './pages/cc/CCDashboard';
+import CCTimetable from './pages/cc/CCTimetable';
+import CCAttendance from './pages/cc/CCAttendance';
+import CCAttendanceSheet from './pages/cc/CCAttendanceSheet';
+import CCTests from './pages/cc/CCTests';
+import CCTestSheet from './pages/cc/CCTestSheet';
+import CCStudents from './pages/cc/CCStudents';
+import CCLeaveRequests from './pages/cc/CCLeaveRequests';
+import CCComplaints from './pages/cc/CCComplaints';
+
 import './index.css';
 
 // Protected Route Component
@@ -85,7 +104,40 @@ const HodRoute = ({ children }) => {
 const TeacherRoute = ({ children }) => {
   const { user } = useAuth();
 
-  if (user?.role !== 'teacher' && user?.role !== 'classcoordinator') {
+  if (user?.role !== 'teacher') {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  return children;
+};
+
+// Class Coordinator Only Route
+const CCRoute = ({ children }) => {
+  const { user } = useAuth();
+
+  if (user?.role !== 'classcoordinator') {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  return children;
+};
+
+// Student Only Route
+const StudentRoute = ({ children }) => {
+  const { user } = useAuth();
+
+  if (user?.role !== 'student') {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  return children;
+};
+
+// Parent Only Route
+const ParentRoute = ({ children }) => {
+  const { user } = useAuth();
+
+  if (user?.role !== 'parent') {
     return <Navigate to="/dashboard" replace />;
   }
 
@@ -100,8 +152,20 @@ const SmartDashboard = () => {
     return <Navigate to="/hod/dashboard" replace />;
   }
 
-  if (user?.role === 'teacher' || user?.role === 'classcoordinator') {
+  if (user?.role === 'teacher') {
     return <Navigate to="/teacher/dashboard" replace />;
+  }
+
+  if (user?.role === 'classcoordinator') {
+    return <Navigate to="/cc/dashboard" replace />;
+  }
+
+  if (user?.role === 'student') {
+    return <Navigate to="/student/dashboard" replace />;
+  }
+
+  if (user?.role === 'parent') {
+    return <Navigate to="/parent/dashboard" replace />;
   }
 
   return <Dashboard />;
@@ -156,6 +220,33 @@ function App() {
             <Route path="teacher/timetable" element={<TeacherRoute><TeacherTimetable /></TeacherRoute>} />
             <Route path="teacher/leave-requests" element={<TeacherRoute><TeacherLeaveRequests /></TeacherRoute>} />
             <Route path="teacher/complaints" element={<TeacherRoute><TeacherComplaints /></TeacherRoute>} />
+
+            {/* Class Coordinator Routes */}
+            <Route path="cc/dashboard" element={<CCRoute><CCDashboard /></CCRoute>} />
+            <Route path="cc/timetable" element={<CCRoute><CCTimetable /></CCRoute>} />
+            <Route path="cc/attendance" element={<CCRoute><CCAttendance /></CCRoute>} />
+            <Route path="cc/attendance/:subject" element={<CCRoute><CCAttendanceSheet /></CCRoute>} />
+            <Route path="cc/tests" element={<CCRoute><CCTests /></CCRoute>} />
+            <Route path="cc/tests/:subject" element={<CCRoute><CCTestSheet /></CCRoute>} />
+            <Route path="cc/students" element={<CCRoute><CCStudents /></CCRoute>} />
+            <Route path="cc/leave-requests" element={<CCRoute><CCLeaveRequests /></CCRoute>} />
+            <Route path="cc/complaints" element={<CCRoute><CCComplaints /></CCRoute>} />
+
+            {/* Student Routes */}
+            <Route path="student/dashboard" element={<StudentRoute><StudentDashboard /></StudentRoute>} />
+            <Route path="student/timetable" element={<StudentRoute><StudentTimetable /></StudentRoute>} />
+            <Route path="student/attendance" element={<StudentRoute><StudentAttendance /></StudentRoute>} />
+            <Route path="student/tests" element={<StudentRoute><StudentTestScores /></StudentRoute>} />
+            <Route path="student/leave-requests" element={<StudentRoute><StudentLeaveRequests /></StudentRoute>} />
+            <Route path="student/complaints" element={<StudentRoute><StudentComplaints /></StudentRoute>} />
+
+            {/* Parent Routes - reuse student components */}
+            <Route path="parent/dashboard" element={<ParentRoute><StudentDashboard /></ParentRoute>} />
+            <Route path="parent/timetable" element={<ParentRoute><StudentTimetable /></ParentRoute>} />
+            <Route path="parent/attendance" element={<ParentRoute><StudentAttendance /></ParentRoute>} />
+            <Route path="parent/tests" element={<ParentRoute><StudentTestScores /></ParentRoute>} />
+            <Route path="parent/leave-requests" element={<ParentRoute><StudentLeaveRequests /></ParentRoute>} />
+            <Route path="parent/complaints" element={<ParentRoute><StudentComplaints /></ParentRoute>} />
           </Route>
 
           <Route path="*" element={<Navigate to="/login" replace />} />

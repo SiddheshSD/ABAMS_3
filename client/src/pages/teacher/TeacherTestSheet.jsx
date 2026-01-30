@@ -130,10 +130,16 @@ const TeacherTestSheet = () => {
     const handleEdit = (test) => {
         setEditingTest(test);
         // Ensure all students have marks (fill missing with null)
-        const existingMarks = new Map(test.marks.map(m => [(m.studentId?._id || m.studentId), m.score]));
+        // Use string IDs for consistent comparison
+        const existingMarks = new Map(
+            test.marks.map(m => [
+                (m.studentId?._id || m.studentId)?.toString(),
+                m.score
+            ])
+        );
         const allMarks = students.map(s => ({
             studentId: s._id,
-            score: existingMarks.has(s._id) ? existingMarks.get(s._id) : null
+            score: existingMarks.has(s._id?.toString()) ? existingMarks.get(s._id?.toString()) : null
         }));
         setEditMarks(allMarks);
     };
