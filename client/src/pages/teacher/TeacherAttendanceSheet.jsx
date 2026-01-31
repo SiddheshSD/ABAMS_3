@@ -9,7 +9,7 @@ const TeacherAttendanceSheet = () => {
 
     const [classInfo, setClassInfo] = useState(null);
     const [students, setStudents] = useState([]);
-    const [attendanceRecords, setAttendanceRecords] = useState([]);
+    const [records, setRecords] = useState([]);
     const [timeSlots, setTimeSlots] = useState([]);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -24,8 +24,8 @@ const TeacherAttendanceSheet = () => {
     });
 
     // Edit mode state
-    const [editingId, setEditingId] = useState(null);
-    const [editRecords, setEditRecords] = useState([]);
+    const [editingRecord, setEditingRecord] = useState(null);
+    const [editedRecords, setEditedRecords] = useState([]);
 
     useEffect(() => {
         fetchData();
@@ -40,7 +40,7 @@ const TeacherAttendanceSheet = () => {
 
             setClassInfo(sheetResponse.data.classInfo);
             setStudents(sheetResponse.data.students);
-            setAttendanceRecords(sheetResponse.data.attendanceRecords);
+            setRecords(sheetResponse.data.attendanceRecords || []);
             setTimeSlots(timeSlotsResponse.data);
 
             // Initialize new attendance records with all students present
@@ -62,27 +62,36 @@ const TeacherAttendanceSheet = () => {
         }
     };
 
-    const handleStatusToggle = (studentId, isNew = true) => {
-        const targetId = studentId.toString();
-        if (isNew) {
-            setNewAttendance(prev => ({
-                ...prev,
-                records: prev.records.map(r =>
-                    r.studentId?.toString() === targetId
-                        ? { ...r, status: r.status === 'present' ? 'absent' : 'present' }
-                        : r
-                )
-            }));
-        } else {
-            setEditRecords(prev =>
-                prev.map(r => {
-                    const recordStudentId = (r.studentId?._id || r.studentId)?.toString();
-                    return recordStudentId === targetId
-                        ? { ...r, status: r.status === 'present' ? 'absent' : 'present' }
-                        : r;
-                })
-            );
-        }
+    const formatDate = (date) => {
+        return new Date(date).toLocaleDateString('en-IN', {
+            day: '2-digit',
+            month: 'short',
+            year: 'numeric'
+        });
+    };
+
+    const getTimeSlotLabel = (timeSlotId) => {
+        const slotId = timeSlotId?._id || timeSlotId;
+        const slot = timeSlots.find(s => s._id === slotId);
+        if (!slot) return '';
+        return `${slot.startTime} - ${slot.endTime}`;
+    };
+
+    const getStudentStatus = (record, studentId) => {
+        const studentRecord = record.records?.find(r => r.studentId === studentId || r.studentId?._id === studentId);
+        return studentRecord?.status || 'absent';
+    };
+
+    // New Attendance Form Handlers
+    const handleNewStatusToggle = (studentId) => {
+        setNewAttendance(prev => ({
+            ...prev,
+            records: prev.records.map(r =>
+                r.studentId === studentId
+                    ? { ...r, status: r.status === 'present' ? 'absent' : 'present' }
+                    : r
+            )
+        }));
     };
 
     const handleSaveNew = async () => {
@@ -105,7 +114,7 @@ const TeacherAttendanceSheet = () => {
 
             setMessage({ type: 'success', text: 'Attendance saved successfully!' });
             setShowNewForm(false);
-            fetchData(); // Refresh data
+            fetchData();
         } catch (error) {
             console.error('Failed to save attendance:', error);
             setMessage({ type: 'error', text: error.response?.data?.message || 'Failed to save attendance' });
@@ -114,44 +123,53 @@ const TeacherAttendanceSheet = () => {
         }
     };
 
-    const handleEdit = (record) => {
-        setEditingId(record._id);
-        // Build edit records for all current students, preserving existing statuses
-        const existingRecords = record.records || [];
-        const allStudentRecords = students.map(student => {
-            // Find existing record for this student
-            const existing = existingRecords.find(r =>
-                (r.studentId?._id || r.studentId) === student._id
+    // Edit Handlers
+    const handleEditClick = (record) => {
+        setEditingRecord(record);
+        setEditedRecords(students.map(student => {
+            const existingRecord = record.records?.find(r =>
+                r.studentId === student._id || r.studentId?._id === student._id
             );
             return {
                 studentId: student._id,
-                status: existing?.status || 'present'
+                status: existingRecord?.status || 'absent'
             };
-        });
-        setEditRecords(allStudentRecords);
+        }));
+    };
+
+    const handleStatusToggle = (studentId) => {
+        setEditedRecords(prev => prev.map(r => {
+            if (r.studentId === studentId) {
+                return { ...r, status: r.status === 'present' ? 'absent' : 'present' };
+            }
+            return r;
+        }));
     };
 
     const handleSaveEdit = async () => {
+        if (!editingRecord) return;
         setSaving(true);
         setMessage({ type: '', text: '' });
 
         try {
-            await api.put(`/teacher/attendance/${editingId}`, {
-                records: editRecords.map(r => ({
-                    studentId: r.studentId?._id || r.studentId,
-                    status: r.status
-                }))
+            await api.put(`/teacher/attendance/${editingRecord._id}`, {
+                records: editedRecords
             });
-
             setMessage({ type: 'success', text: 'Attendance updated successfully!' });
-            setEditingId(null);
-            fetchData();
+            await fetchData();
+            setEditingRecord(null);
+            setEditedRecords([]);
         } catch (error) {
-            console.error('Failed to update attendance:', error);
-            setMessage({ type: 'error', text: error.response?.data?.message || 'Failed to update attendance' });
+            console.error('Failed to save attendance:', error);
+            setMessage({ type: 'error', text: 'Failed to save attendance' });
         } finally {
             setSaving(false);
         }
+    };
+
+    const handleCancelEdit = () => {
+        setEditingRecord(null);
+        setEditedRecords([]);
     };
 
     const handleDelete = async (id) => {
@@ -167,24 +185,6 @@ const TeacherAttendanceSheet = () => {
         }
     };
 
-    const formatDate = (date) => {
-        return new Date(date).toLocaleDateString('en-IN', {
-            day: '2-digit',
-            month: '2-digit',
-            year: 'numeric'
-        });
-    };
-
-    const getTimeSlotLabel = (timeSlotId) => {
-        const slot = timeSlots.find(s => s._id === timeSlotId);
-        return slot ? `${slot.startTime} - ${slot.endTime}` : '';
-    };
-
-    const getStudentStatus = (records, studentId) => {
-        const record = records.find(r => (r.studentId?._id || r.studentId) === studentId);
-        return record?.status || 'present';
-    };
-
     if (loading) {
         return (
             <div className="loading">
@@ -195,50 +195,66 @@ const TeacherAttendanceSheet = () => {
 
     return (
         <div>
-            {/* Header */}
-            <div className="card" style={{ marginBottom: '24px' }}>
-                <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
-                    <div>
-                        <button
-                            className="btn btn-ghost"
-                            onClick={() => navigate('/teacher/attendance')}
-                            style={{ marginBottom: '8px' }}
-                        >
-                            ← Back to Attendance
-                        </button>
-                        <h2 className="card-title" style={{ margin: 0 }}>
-                            {classInfo?.className} - {classInfo?.subject}
-                        </h2>
-                        <p style={{ margin: '4px 0 0', color: 'var(--gray-500)' }}>
-                            {classInfo?.department} • Year {classInfo?.year}
-                        </p>
-                    </div>
-                    <button
-                        className="btn btn-primary"
-                        onClick={() => setShowNewForm(true)}
-                        disabled={showNewForm}
+            <div className="card">
+                <div className="card-header">
+                    <div
+                        style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            width: '100%',
+                            gap: '12px',
+                        }}
                     >
-                        + Take New Attendance
-                    </button>
-                </div>
-            </div>
+                        {/* LEFT SIDE */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                            <button
+                                className="btn btn-outline"
+                                onClick={() => navigate('/teacher/attendance')}
+                            >
+                                ← Back
+                            </button>
 
-            {/* Messages */}
-            {message.text && (
-                <div className={`alert alert-${message.type}`} style={{ marginBottom: '24px' }}>
-                    {message.text}
-                </div>
-            )}
+                            <div>
+                                <h2 className="card-title" style={{ margin: 0 }}>
+                                    {classInfo?.className} - {decodedSubject} - Attendance
+                                </h2>
+                                <p
+                                    style={{
+                                        margin: '4px 0 0',
+                                        color: 'var(--text-secondary)',
+                                        fontSize: '14px',
+                                    }}
+                                >
+                                    {classInfo?.department} • Year {classInfo?.year}
+                                </p>
+                            </div>
+                        </div>
 
-            {/* New Attendance Form */}
-            {showNewForm && (
-                <div className="card" style={{ marginBottom: '24px' }}>
-                    <div className="card-header">
-                        <h3 className="card-title">📋 New Attendance</h3>
+                        {/* RIGHT SIDE */}
+                        <button
+                            className="btn btn-primary"
+                            onClick={() => setShowNewForm(true)}
+                            disabled={showNewForm}
+                        >
+                            Take New Attendance
+                        </button>
                     </div>
-                    <div style={{ padding: '0 24px 24px' }}>
-                        <div className="form-row" style={{ display: 'flex', gap: '16px', marginBottom: '24px', flexWrap: 'wrap' }}>
-                            <div className="form-group" style={{ flex: '1', minWidth: '200px' }}>
+                </div>
+
+                {/* Messages */}
+                {message.text && (
+                    <div className={`alert alert-${message.type}`} style={{ margin: '0 16px 16px' }}>
+                        {message.text}
+                    </div>
+                )}
+
+                {/* New Attendance Form */}
+                {showNewForm && (
+                    <div className="form-section" style={{ margin: '0 16px 20px', padding: '16px', background: 'var(--success-light)', borderRadius: '8px' }}>
+                        <h3 style={{ marginBottom: '12px' }}>Take New Attendance</h3>
+                        <div style={{ display: 'flex', gap: '16px', marginBottom: '16px', flexWrap: 'wrap' }}>
+                            <div className="form-group" style={{ minWidth: '180px' }}>
                                 <label className="form-label">Date</label>
                                 <input
                                     type="date"
@@ -247,7 +263,7 @@ const TeacherAttendanceSheet = () => {
                                     onChange={(e) => setNewAttendance(prev => ({ ...prev, date: e.target.value }))}
                                 />
                             </div>
-                            <div className="form-group" style={{ flex: '1', minWidth: '200px' }}>
+                            <div className="form-group" style={{ minWidth: '200px' }}>
                                 <label className="form-label">Time Slot</label>
                                 <select
                                     className="form-input"
@@ -263,35 +279,36 @@ const TeacherAttendanceSheet = () => {
                                 </select>
                             </div>
                         </div>
-
-                        <div className="table-container" style={{ maxHeight: '400px', overflowY: 'auto' }}>
-                            <table className="table">
-                                <thead style={{ position: 'sticky', top: 0, background: 'white', zIndex: 1 }}>
+                        <div className="table-container" style={{ maxHeight: '300px', overflowY: 'auto' }}>
+                            <table className="data-table">
+                                <thead>
                                     <tr>
-                                        <th style={{ width: '60px' }}>#</th>
                                         <th>Roll No</th>
                                         <th>Student Name</th>
-                                        <th style={{ width: '120px', textAlign: 'center' }}>Status</th>
+                                        <th>Status</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {students.map((student, index) => {
+                                    {students.map(student => {
                                         const record = newAttendance.records.find(r => r.studentId === student._id);
                                         const status = record?.status || 'present';
                                         return (
                                             <tr key={student._id}>
-                                                <td>{index + 1}</td>
                                                 <td>{student.username}</td>
-                                                <td>{student.fullName}</td>
-                                                <td style={{ textAlign: 'center' }}>
+                                                <td>{student.fullName || `${student.firstName} ${student.lastName}`}</td>
+                                                <td>
                                                     <button
-                                                        className={`btn ${status === 'present' ? 'btn-success' : 'btn-danger'}`}
+                                                        className={`attendance-toggle ${status}`}
+                                                        onClick={() => handleNewStatusToggle(student._id)}
                                                         style={{
-                                                            minWidth: '80px',
-                                                            padding: '6px 12px',
-                                                            fontSize: '0.85rem'
+                                                            padding: '6px 16px',
+                                                            borderRadius: '20px',
+                                                            border: 'none',
+                                                            cursor: 'pointer',
+                                                            fontWeight: '500',
+                                                            background: status === 'present' ? 'var(--success)' : 'var(--danger)',
+                                                            color: 'white'
                                                         }}
-                                                        onClick={() => handleStatusToggle(student._id, true)}
                                                     >
                                                         {status === 'present' ? '✓ Present' : '✗ Absent'}
                                                     </button>
@@ -302,133 +319,65 @@ const TeacherAttendanceSheet = () => {
                                 </tbody>
                             </table>
                         </div>
-
-                        <div style={{ display: 'flex', gap: '12px', marginTop: '24px', justifyContent: 'flex-end' }}>
-                            <button className="btn btn-ghost" onClick={() => setShowNewForm(false)}>
-                                Cancel
-                            </button>
+                        <div style={{ marginTop: '16px', display: 'flex', gap: '12px' }}>
                             <button className="btn btn-primary" onClick={handleSaveNew} disabled={saving}>
                                 {saving ? 'Saving...' : 'Save Attendance'}
                             </button>
+                            <button className="btn btn-outline" onClick={() => setShowNewForm(false)}>
+                                Cancel
+                            </button>
                         </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Existing Attendance Records */}
-            <div className="card">
-                <div className="card-header">
-                    <h3 className="card-title">📅 Attendance History</h3>
-                </div>
-
-                {attendanceRecords.length > 0 ? (
-                    <div style={{ overflowX: 'auto' }}>
-                        <table className="table">
-                            <thead>
-                                <tr>
-                                    <th>Date</th>
-                                    <th>Time Slot</th>
-                                    <th>Present</th>
-                                    <th>Absent</th>
-                                    <th>Total</th>
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {attendanceRecords.map(record => (
-                                    <tr key={record._id}>
-                                        <td>{formatDate(record.date)}</td>
-                                        <td>{record.timeSlotId?.label || getTimeSlotLabel(record.timeSlotId)}</td>
-                                        <td>
-                                            <span className="badge" style={{ background: 'var(--success-light)', color: 'var(--success)' }}>
-                                                {record.presentCount}
-                                            </span>
-                                        </td>
-                                        <td>
-                                            <span className="badge" style={{ background: 'var(--danger-light)', color: 'var(--danger)' }}>
-                                                {record.absentCount}
-                                            </span>
-                                        </td>
-                                        <td>{record.totalCount}</td>
-                                        <td>
-                                            <div className="action-buttons">
-                                                <button
-                                                    className="btn btn-ghost"
-                                                    onClick={() => handleEdit(record)}
-                                                    title="Edit"
-                                                >
-                                                    ✏️
-                                                </button>
-                                                <button
-                                                    className="btn btn-ghost"
-                                                    onClick={() => handleDelete(record._id)}
-                                                    title="Delete"
-                                                    style={{ color: 'var(--danger)' }}
-                                                >
-                                                    🗑️
-                                                </button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                ) : (
-                    <div style={{ padding: '40px', textAlign: 'center', color: 'var(--gray-500)' }}>
-                        <p>No attendance records yet. Click "Take New Attendance" to get started.</p>
                     </div>
                 )}
-            </div>
 
-            {/* Edit Modal */}
-            {editingId && (
-                <div className="modal-overlay" style={{
-                    position: 'fixed',
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    background: 'rgba(0,0,0,0.5)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    zIndex: 1000
-                }}>
-                    <div className="modal-content" style={{
-                        background: 'white',
-                        borderRadius: '12px',
-                        width: '90%',
-                        maxWidth: '600px',
-                        maxHeight: '80vh',
-                        overflow: 'hidden',
-                        display: 'flex',
-                        flexDirection: 'column'
-                    }}>
-                        <div style={{ padding: '20px', borderBottom: '1px solid var(--gray-200)' }}>
-                            <h3 style={{ margin: 0 }}>Edit Attendance</h3>
+                {/* Edit Attendance Form */}
+                {editingRecord && (
+                    <div className="form-section" style={{ margin: '0 16px 20px', padding: '16px', background: 'var(--primary-light)', borderRadius: '8px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                            <h3 style={{ margin: 0 }}>
+                                ✏️ Editing: {formatDate(editingRecord.date)} • {getTimeSlotLabel(editingRecord.timeSlotId)}
+                            </h3>
+                            <button
+                                className="btn btn-danger"
+                                onClick={() => {
+                                    handleDelete(editingRecord._id);
+                                    handleCancelEdit();
+                                }}
+                                style={{ fontSize: '12px', padding: '6px 12px' }}
+                            >
+                                Delete Record
+                            </button>
                         </div>
-                        <div style={{ flex: 1, overflow: 'auto', padding: '0' }}>
-                            <table className="table">
-                                <thead style={{ position: 'sticky', top: 0, background: 'white' }}>
+                        <div className="table-container" style={{ maxHeight: '300px', overflowY: 'auto' }}>
+                            <table className="data-table">
+                                <thead>
                                     <tr>
-                                        <th>#</th>
+                                        <th>Roll No</th>
                                         <th>Student Name</th>
-                                        <th style={{ textAlign: 'center' }}>Status</th>
+                                        <th>Status</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {students.map((student, index) => {
-                                        const status = getStudentStatus(editRecords, student._id);
+                                    {students.map(student => {
+                                        const record = editedRecords.find(r => r.studentId === student._id);
+                                        const status = record?.status || 'absent';
                                         return (
                                             <tr key={student._id}>
-                                                <td>{index + 1}</td>
-                                                <td>{student.fullName}</td>
-                                                <td style={{ textAlign: 'center' }}>
+                                                <td>{student.username}</td>
+                                                <td>{student.fullName || `${student.firstName} ${student.lastName}`}</td>
+                                                <td>
                                                     <button
-                                                        className={`btn ${status === 'present' ? 'btn-success' : 'btn-danger'}`}
-                                                        style={{ minWidth: '80px', padding: '6px 12px', fontSize: '0.85rem' }}
-                                                        onClick={() => handleStatusToggle(student._id, false)}
+                                                        className={`attendance-toggle ${status}`}
+                                                        onClick={() => handleStatusToggle(student._id)}
+                                                        style={{
+                                                            padding: '6px 16px',
+                                                            borderRadius: '20px',
+                                                            border: 'none',
+                                                            cursor: 'pointer',
+                                                            fontWeight: '500',
+                                                            background: status === 'present' ? 'var(--success)' : 'var(--danger)',
+                                                            color: 'white'
+                                                        }}
                                                     >
                                                         {status === 'present' ? '✓ Present' : '✗ Absent'}
                                                     </button>
@@ -439,15 +388,80 @@ const TeacherAttendanceSheet = () => {
                                 </tbody>
                             </table>
                         </div>
-                        <div style={{ padding: '20px', borderTop: '1px solid var(--gray-200)', display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
-                            <button className="btn btn-ghost" onClick={() => setEditingId(null)}>Cancel</button>
+                        <div style={{ marginTop: '16px', display: 'flex', gap: '12px' }}>
                             <button className="btn btn-primary" onClick={handleSaveEdit} disabled={saving}>
                                 {saving ? 'Saving...' : 'Save Changes'}
                             </button>
+                            <button className="btn btn-outline" onClick={handleCancelEdit}>
+                                Cancel
+                            </button>
                         </div>
                     </div>
+                )}
+
+                {/* Spreadsheet-style Attendance Table */}
+                <div className="table-container" style={{ overflowX: 'auto' }}>
+                    <table className="data-table">
+                        <thead>
+                            <tr>
+                                <th style={{ position: 'sticky', left: 0, background: 'var(--bg)', zIndex: 2, minWidth: '80px' }}>Roll No</th>
+                                <th style={{ position: 'sticky', left: '80px', background: 'var(--bg)', zIndex: 2, minWidth: '150px' }}>Name</th>
+                                {records.map(record => (
+                                    <th key={record._id} style={{ minWidth: '120px', textAlign: 'center' }}>
+                                        <div>{formatDate(record.date)}</div>
+                                        <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
+                                            {getTimeSlotLabel(record.timeSlotId)}
+                                        </div>
+                                        <button
+                                            className="btn-icon"
+                                            onClick={() => handleEditClick(record)}
+                                            title="Edit"
+                                            style={{ marginTop: '4px' }}
+                                        >
+                                            ✏️
+                                        </button>
+                                    </th>
+                                ))}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {students.map(student => (
+                                <tr key={student._id}>
+                                    <td style={{ position: 'sticky', left: 0, background: 'var(--bg)', zIndex: 1 }}>
+                                        {student.username}
+                                    </td>
+                                    <td style={{ position: 'sticky', left: '80px', background: 'var(--bg)', zIndex: 1 }}>
+                                        {student.fullName || `${student.firstName} ${student.lastName}`}
+                                    </td>
+                                    {records.map(record => {
+                                        const status = getStudentStatus(record, student._id);
+                                        return (
+                                            <td key={record._id} style={{ textAlign: 'center' }}>
+                                                <span style={{
+                                                    padding: '4px 12px',
+                                                    borderRadius: '12px',
+                                                    fontSize: '12px',
+                                                    fontWeight: '500',
+                                                    background: status === 'present' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+                                                    color: status === 'present' ? 'var(--success)' : 'var(--danger)'
+                                                }}>
+                                                    {status === 'present' ? 'P' : 'A'}
+                                                </span>
+                                            </td>
+                                        );
+                                    })}
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
                 </div>
-            )}
+
+                {records.length === 0 && (
+                    <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                        No attendance records found for {decodedSubject}. Click "+ Take New Attendance" to get started.
+                    </div>
+                )}
+            </div>
         </div>
     );
 };

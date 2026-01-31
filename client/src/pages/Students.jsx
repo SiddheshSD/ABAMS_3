@@ -164,14 +164,14 @@ const Students = () => {
                 <div style={{
                     padding: '16px 24px',
                     background: 'linear-gradient(135deg, var(--success-light, #2d8021ff) 10%, var(--success, #ffffffff) 100%)',
-                    borderRadius: '12px 12px 0 0',
+                    borderRadius: '12px',
                     color: 'white',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between'
                 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                        <span style={{ fontSize: '2rem' }}>👨‍🎓</span>
+                        <span style={{ fontSize: '2rem' }}></span>
                         <div>
                             <div style={{ fontSize: '1.75rem', fontWeight: '700' }}>{filteredStudents.length}</div>
                             <div style={{ fontSize: '0.875rem', opacity: 0.9 }}>
@@ -191,8 +191,8 @@ const Students = () => {
                             <option value="">All Departments</option>
                             {departments.map((d) => <option key={d._id} value={d._id}>{d.name}</option>)}
                         </select>
-                        <button className="btn btn-secondary" onClick={handleDownloadTemplate}>📥 Template</button>
-                        <button className="btn btn-secondary" onClick={() => setBulkModalOpen(true)}>📤 Bulk Upload</button>
+                        <button className="btn btn-secondary" onClick={handleDownloadTemplate}>Template</button>
+                        <button className="btn btn-secondary" onClick={() => setBulkModalOpen(true)}>Bulk Upload</button>
                         <button className="btn btn-primary" onClick={openAddModal}>➕ Add Student</button>
                     </div>
                 </div>

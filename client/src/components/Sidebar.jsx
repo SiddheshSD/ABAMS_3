@@ -1,76 +1,87 @@
 import { NavLink } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import {
+    FiHome, FiUsers, FiBook, FiCalendar, FiClock, FiGrid,
+    FiFileText, FiClipboard, FiMessageSquare, FiSettings,
+    FiUser, FiBookOpen, FiLayers, FiMapPin
+} from 'react-icons/fi';
 
 const Sidebar = ({ collapsed, mobileOpen, onMobileClose }) => {
     const { user } = useAuth();
 
     // Admin navigation items
     const adminNavItems = [
-        { path: '/dashboard', icon: '📊', label: 'Dashboard' },
-        { path: '/students', icon: '👨‍🎓', label: 'Students' },
-        { path: '/teachers', icon: '👨‍🏫', label: 'Teachers' },
-        { path: '/departments', icon: '🏢', label: 'Departments' },
-        { path: '/classes', icon: '📚', label: 'Classes' },
-        { path: '/subjects', icon: '📖', label: 'Subjects' },
-        { path: '/test-types', icon: '📝', label: 'Test Types' },
-        { path: '/lectures', icon: '🎯', label: 'Lectures' },
-        { path: '/timetable', icon: '📅', label: 'Timetable' },
-        { path: '/rooms', icon: '🚪', label: 'Classrooms' },
-        { path: '/timeslots', icon: '⏰', label: 'Time Slots' },
+        { path: '/dashboard', icon: <FiHome />, label: 'Dashboard' },
+        { path: '/students', icon: <FiUsers />, label: 'Students' },
+        { path: '/teachers', icon: <FiUser />, label: 'Teachers' },
+        { path: '/departments', icon: <FiGrid />, label: 'Departments' },
+        { path: '/classes', icon: <FiLayers />, label: 'Classes' },
+        { path: '/subjects', icon: <FiBook />, label: 'Subjects' },
+        { path: '/test-types', icon: <FiFileText />, label: 'Test Types' },
+        { path: '/lectures', icon: <FiBookOpen />, label: 'Lectures' },
+        { path: '/timetable', icon: <FiCalendar />, label: 'Timetable' },
+        { path: '/rooms', icon: <FiMapPin />, label: 'Classrooms' },
+        { path: '/timeslots', icon: <FiClock />, label: 'Time Slots' },
+        { path: '/profile', icon: <FiSettings />, label: 'Profile' },
     ];
 
     // HOD navigation items
     const hodNavItems = [
-        { path: '/hod/dashboard', icon: '📊', label: 'Dashboard' },
-        { path: '/hod/attendance', icon: '📋', label: 'Attendance' },
-        { path: '/hod/students', icon: '👨‍🎓', label: 'Students' },
-        { path: '/hod/teachers', icon: '👨‍🏫', label: 'Teachers' },
-        { path: '/hod/lectures', icon: '📖', label: 'Lectures' },
-        { path: '/hod/classes', icon: '📚', label: 'Classes' },
-        { path: '/hod/timetable', icon: '📅', label: 'Timetable' },
-        { path: '/hod/leave-requests', icon: '📝', label: 'Leave Requests' },
-        { path: '/hod/complaints', icon: '📢', label: 'Complaints' },
+        { path: '/hod/dashboard', icon: <FiHome />, label: 'Dashboard' },
+        { path: '/hod/attendance', icon: <FiClipboard />, label: 'Attendance' },
+        { path: '/hod/students', icon: <FiUsers />, label: 'Students' },
+        { path: '/hod/teachers', icon: <FiUser />, label: 'Teachers' },
+        { path: '/hod/lectures', icon: <FiBookOpen />, label: 'Lectures' },
+        { path: '/hod/classes', icon: <FiLayers />, label: 'Classes' },
+        { path: '/hod/timetable', icon: <FiCalendar />, label: 'Timetable' },
+        { path: '/hod/leave-requests', icon: <FiFileText />, label: 'Leave Requests' },
+        { path: '/hod/complaints', icon: <FiMessageSquare />, label: 'Complaints' },
+        { path: '/profile', icon: <FiSettings />, label: 'Profile' },
     ];
 
     // Teacher navigation items
     const teacherNavItems = [
-        { path: '/teacher/dashboard', icon: '📊', label: 'Dashboard' },
-        { path: '/teacher/attendance', icon: '📋', label: 'Attendance' },
-        { path: '/teacher/tests', icon: '📝', label: 'Tests' },
-        { path: '/teacher/timetable', icon: '📅', label: 'Timetable' },
-        { path: '/teacher/leave-requests', icon: '🏖️', label: 'Leave Requests' },
-        { path: '/teacher/complaints', icon: '📢', label: 'Complaints' },
+        { path: '/teacher/dashboard', icon: <FiHome />, label: 'Dashboard' },
+        { path: '/teacher/attendance', icon: <FiClipboard />, label: 'Attendance' },
+        { path: '/teacher/tests', icon: <FiFileText />, label: 'Tests' },
+        { path: '/teacher/timetable', icon: <FiCalendar />, label: 'Timetable' },
+        { path: '/teacher/leave-requests', icon: <FiFileText />, label: 'Leave Requests' },
+        { path: '/teacher/complaints', icon: <FiMessageSquare />, label: 'Complaints' },
+        { path: '/profile', icon: <FiSettings />, label: 'Profile' },
     ];
 
     // Student navigation items
     const studentNavItems = [
-        { path: '/student/dashboard', icon: '📊', label: 'Dashboard' },
-        { path: '/student/timetable', icon: '📅', label: 'Timetable' },
-        { path: '/student/attendance', icon: '📋', label: 'Attendance' },
-        { path: '/student/tests', icon: '📝', label: 'Test Scores' },
-        { path: '/student/leave-requests', icon: '🏖️', label: 'Leave Requests' },
-        { path: '/student/complaints', icon: '📢', label: 'Complaints' },
+        { path: '/student/dashboard', icon: <FiHome />, label: 'Dashboard' },
+        { path: '/student/timetable', icon: <FiCalendar />, label: 'Timetable' },
+        { path: '/student/attendance', icon: <FiClipboard />, label: 'Attendance' },
+        { path: '/student/tests', icon: <FiFileText />, label: 'Test Scores' },
+        { path: '/student/leave-requests', icon: <FiFileText />, label: 'Leave Requests' },
+        { path: '/student/complaints', icon: <FiMessageSquare />, label: 'Complaints' },
+        { path: '/profile', icon: <FiSettings />, label: 'Profile' },
     ];
 
     // Parent navigation items
     const parentNavItems = [
-        { path: '/parent/dashboard', icon: '📊', label: 'Dashboard' },
-        { path: '/parent/timetable', icon: '📅', label: 'Timetable' },
-        { path: '/parent/attendance', icon: '📋', label: 'Attendance' },
-        { path: '/parent/tests', icon: '📝', label: 'Test Scores' },
-        { path: '/parent/leave-requests', icon: '🏖️', label: 'Leave Requests' },
-        { path: '/parent/complaints', icon: '📢', label: 'Complaints' },
+        { path: '/parent/dashboard', icon: <FiHome />, label: 'Dashboard' },
+        { path: '/parent/timetable', icon: <FiCalendar />, label: 'Timetable' },
+        { path: '/parent/attendance', icon: <FiClipboard />, label: 'Attendance' },
+        { path: '/parent/tests', icon: <FiFileText />, label: 'Test Scores' },
+        { path: '/parent/leave-requests', icon: <FiFileText />, label: 'Leave Requests' },
+        { path: '/parent/complaints', icon: <FiMessageSquare />, label: 'Complaints' },
+        { path: '/profile', icon: <FiSettings />, label: 'Profile' },
     ];
 
     // Class Coordinator navigation items
     const ccNavItems = [
-        { path: '/cc/dashboard', icon: '📊', label: 'Dashboard' },
-        { path: '/cc/timetable', icon: '📅', label: 'Timetable' },
-        { path: '/cc/attendance', icon: '📋', label: 'Attendance' },
-        { path: '/cc/tests', icon: '📝', label: 'Test Scores' },
-        { path: '/cc/students', icon: '👨‍🎓', label: 'Students' },
-        { path: '/cc/leave-requests', icon: '🏖️', label: 'Leave Requests' },
-        { path: '/cc/complaints', icon: '📢', label: 'Complaints' },
+        { path: '/cc/dashboard', icon: <FiHome />, label: 'Dashboard' },
+        { path: '/cc/timetable', icon: <FiCalendar />, label: 'Timetable' },
+        { path: '/cc/attendance', icon: <FiClipboard />, label: 'Attendance' },
+        { path: '/cc/tests', icon: <FiFileText />, label: 'Test Scores' },
+        { path: '/cc/students', icon: <FiUsers />, label: 'Students' },
+        { path: '/cc/leave-requests', icon: <FiFileText />, label: 'Leave Requests' },
+        { path: '/cc/complaints', icon: <FiMessageSquare />, label: 'Complaints' },
+        { path: '/profile', icon: <FiSettings />, label: 'Profile' },
     ];
 
     // Select nav items based on user role
@@ -99,7 +110,7 @@ const Sidebar = ({ collapsed, mobileOpen, onMobileClose }) => {
             <aside className={`sidebar ${collapsed ? 'collapsed' : ''} ${mobileOpen ? 'mobile-open' : ''}`}>
                 <div className="sidebar-header">
                     <div className="logo">
-                        <div className="logo-icon">🎓</div>
+                        <div className="logo-icon">A</div>
                         <span className="logo-text">ABAMS</span>
                     </div>
                 </div>
@@ -122,3 +133,5 @@ const Sidebar = ({ collapsed, mobileOpen, onMobileClose }) => {
 };
 
 export default Sidebar;
+
+

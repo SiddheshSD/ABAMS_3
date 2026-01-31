@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../services/api';
+import { FiUsers, FiClipboard, FiFileText, FiCalendar, FiClock, FiAlertCircle } from 'react-icons/fi';
 
 const CCDashboard = () => {
     const [stats, setStats] = useState(null);
@@ -47,9 +48,9 @@ const CCDashboard = () => {
             {/* Class Info Header */}
             <div className="card" style={{ marginBottom: '24px' }}>
                 <div className="card-header">
-                    <h2 className="card-title">📚 {stats?.className || 'My Class'}</h2>
+                    <h2 className="card-title">{stats?.className || 'My Class'}</h2>
                     <span className="badge" style={{ background: 'var(--primary)', color: 'white' }}>
-                        Year {stats?.year} • {stats?.department}
+                        Year {stats?.year} - {stats?.department}
                     </span>
                 </div>
             </div>
@@ -57,28 +58,28 @@ const CCDashboard = () => {
             {/* Quick Stats Row */}
             <div className="stats-grid">
                 <div className="stat-card">
-                    <div className="stat-icon students">👨‍🎓</div>
+                    <div className="stat-icon students"><FiUsers size={24} /></div>
                     <div className="stat-info">
                         <h3>{stats?.totalStudents || 0}</h3>
                         <p>Total Students</p>
                     </div>
                 </div>
                 <div className="stat-card">
-                    <div className="stat-icon" style={{ background: getStatusColor(stats?.overallAttendance || 0) }}>📋</div>
+                    <div className="stat-icon" style={{ background: getStatusColor(stats?.overallAttendance || 0) }}><FiClipboard size={24} /></div>
                     <div className="stat-info">
                         <h3>{stats?.overallAttendance || 0}%</h3>
                         <p>Class Attendance</p>
                     </div>
                 </div>
                 <div className="stat-card">
-                    <div className="stat-icon" style={{ background: getStatusColor(stats?.overallTestPerformance || 0) }}>📝</div>
+                    <div className="stat-icon" style={{ background: getStatusColor(stats?.overallTestPerformance || 0) }}><FiFileText size={24} /></div>
                     <div className="stat-info">
                         <h3>{stats?.overallTestPerformance || 0}%</h3>
                         <p>Test Performance</p>
                     </div>
                 </div>
                 <div className="stat-card">
-                    <div className="stat-icon" style={{ background: 'linear-gradient(135deg, #f59e0b, #fbbf24)' }}>⏳</div>
+                    <div className="stat-icon" style={{ background: 'linear-gradient(135deg, #f59e0b, #fbbf24)' }}><FiClock size={24} /></div>
                     <div className="stat-info">
                         <h3>{stats?.pendingLeaves || 0}</h3>
                         <p>Pending Leaves</p>
@@ -138,19 +139,19 @@ const CCDashboard = () => {
                     </div>
                     <div className="quick-actions">
                         <a href="/cc/attendance" className="action-btn">
-                            <span className="action-icon">📋</span>
+                            <span className="action-icon"><FiClipboard size={18} /></span>
                             <span>View Attendance</span>
                         </a>
                         <a href="/cc/tests" className="action-btn">
-                            <span className="action-icon">📝</span>
+                            <span className="action-icon"><FiFileText size={18} /></span>
                             <span>View Test Scores</span>
                         </a>
                         <a href="/cc/students" className="action-btn">
-                            <span className="action-icon">👥</span>
+                            <span className="action-icon"><FiUsers size={18} /></span>
                             <span>View Students</span>
                         </a>
                         <a href="/cc/timetable" className="action-btn">
-                            <span className="action-icon">📅</span>
+                            <span className="action-icon"><FiCalendar size={18} /></span>
                             <span>View Timetable</span>
                         </a>
                     </div>
@@ -162,14 +163,14 @@ const CCDashboard = () => {
                     </div>
                     <div className="pending-list">
                         <div className="pending-item" onClick={() => navigate('/cc/leave-requests')} style={{ cursor: 'pointer' }}>
-                            <div className="pending-icon warning">⏳</div>
+                            <div className="pending-icon warning"><FiClock size={18} /></div>
                             <div className="pending-info">
                                 <span className="pending-count">{stats?.pendingLeaves || 0}</span>
                                 <span className="pending-label">Leave Requests Pending</span>
                             </div>
                         </div>
                         <div className="pending-item" onClick={() => navigate('/cc/complaints')} style={{ cursor: 'pointer' }}>
-                            <div className="pending-icon danger">⚠️</div>
+                            <div className="pending-icon danger"><FiAlertCircle size={18} /></div>
                             <div className="pending-info">
                                 <span className="pending-count">{stats?.openComplaints || 0}</span>
                                 <span className="pending-label">Open Complaints</span>
@@ -183,3 +184,5 @@ const CCDashboard = () => {
 };
 
 export default CCDashboard;
+
+

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import api from '../../services/api';
+import { FiCalendar, FiClock, FiMapPin, FiBook, FiCoffee } from 'react-icons/fi';
 
 const TeacherTimetable = () => {
     const [timetable, setTimetable] = useState([]);
@@ -46,7 +47,7 @@ const TeacherTimetable = () => {
         <div>
             <div className="card">
                 <div className="card-header">
-                    <h2 className="card-title">📅 My Weekly Timetable</h2>
+                    <h2 className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><FiCalendar size={20} /> My Weekly Timetable</h2>
                     <p style={{ margin: 0, color: 'var(--gray-500)', fontSize: '0.9rem' }}>
                         Your teaching schedule for the week
                     </p>
@@ -56,7 +57,7 @@ const TeacherTimetable = () => {
             <div className="card" style={{ marginTop: '24px', overflow: 'hidden' }}>
                 {timeSlots.length === 0 ? (
                     <div style={{ padding: '60px', textAlign: 'center', color: 'var(--gray-500)' }}>
-                        <div style={{ fontSize: '3rem', marginBottom: '16px' }}>⏰</div>
+                        <div style={{ fontSize: '3rem', marginBottom: '16px' }}><FiClock size={48} /></div>
                         <h3>No Time Slots Configured</h3>
                         <p>Time slots need to be configured by admin first.</p>
                     </div>
@@ -97,7 +98,7 @@ const TeacherTimetable = () => {
                                                     fontStyle: 'italic',
                                                     background: 'var(--gray-100)'
                                                 }}>
-                                                    ☕ {slot.label || 'Break'}
+                                                    <FiCoffee size={14} style={{ marginRight: '4px' }} /> {slot.label || 'Break'}
                                                 </td>
                                             </tr>
                                         );
@@ -132,8 +133,8 @@ const TeacherTimetable = () => {
                                                                 <span style={{ color: 'var(--gray-600)' }}>
                                                                     {entry.classId?.name || 'Class'}
                                                                 </span><br />
-                                                                <span style={{ color: 'var(--gray-500)' }}>
-                                                                    📍 {entry.roomId?.roomNumber || 'Room'}
+                                                                <span style={{ color: 'var(--gray-500)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                                    <FiMapPin size={12} /> {entry.roomId?.roomNumber || 'Room'}
                                                                 </span>
                                                                 <span style={{
                                                                     display: 'inline-block',
@@ -210,21 +211,21 @@ const TeacherTimetable = () => {
             {timetable.length > 0 && (
                 <div className="stats-grid" style={{ marginTop: '24px' }}>
                     <div className="stat-card">
-                        <div className="stat-icon" style={{ background: 'linear-gradient(135deg, var(--primary), var(--primary-dark))' }}>📚</div>
+                        <div className="stat-icon" style={{ background: 'linear-gradient(135deg, var(--primary), var(--primary-dark))' }}><FiBook size={24} /></div>
                         <div className="stat-info">
                             <h3>{timetable.filter(t => t.type === 'lecture').length}</h3>
                             <p>Lectures/Week</p>
                         </div>
                     </div>
                     <div className="stat-card">
-                        <div className="stat-icon" style={{ background: 'linear-gradient(135deg, #0ea5e9, #38bdf8)' }}>🔬</div>
+                        <div className="stat-icon" style={{ background: 'linear-gradient(135deg, #0ea5e9, #38bdf8)' }}><FiBook size={24} /></div>
                         <div className="stat-info">
                             <h3>{timetable.filter(t => t.type === 'practical').length}</h3>
                             <p>Practicals/Week</p>
                         </div>
                     </div>
                     <div className="stat-card">
-                        <div className="stat-icon classes">📊</div>
+                        <div className="stat-icon classes"><FiCalendar size={24} /></div>
                         <div className="stat-info">
                             <h3>{timetable.length}</h3>
                             <p>Total Sessions</p>

@@ -149,71 +149,116 @@ const StudentDashboard = () => {
             </div>
 
             {/* Attendance Overview */}
-            <div className="section">
-                <h3 className="section-title">📋 Attendance Overview</h3>
-                <div className="stats-grid">
+            <div className="card" style={{ marginBottom: '24px' }}>
+                <div className="card-header">
+                    <h2 className="card-title">📋 Attendance Overview</h2>
+                </div>
+                <div className="year-cards-grid">
                     {stats?.attendanceStats && stats.attendanceStats.length > 0 ? (
-                        stats.attendanceStats.map((subject, index) => (
-                            <div key={index} className="stat-card">
-                                <div className="stat-card-header">
-                                    <h4>{subject.subject}</h4>
-                                    <span className={`status-badge ${getStatusClass(subject.status)}`}>
-                                        {getStatusLabel(subject.status)}
-                                    </span>
-                                </div>
-                                <div className="stat-card-body">
-                                    <div className="progress-container">
-                                        <div className="progress-bar">
-                                            <div
-                                                className={`progress-fill ${getStatusClass(subject.status)}`}
-                                                style={{ width: `${subject.percentage}%` }}
-                                            ></div>
+                        stats.attendanceStats.map((subject, index) => {
+                            const getStatusColor = (status) => {
+                                if (status === 'good') return 'var(--success)';
+                                if (status === 'warning') return 'var(--warning)';
+                                return 'var(--danger)';
+                            };
+                            const getStatusClassLocal = (status) => {
+                                if (status === 'good') return 'good';
+                                if (status === 'warning') return 'warning';
+                                return 'critical';
+                            };
+                            return (
+                                <div key={index} className="year-card">
+                                    <div className="year-header">
+                                        <span className="year-number">{subject.subject}</span>
+                                        <span className={`attendance-badge ${getStatusClassLocal(subject.status)}`}>
+                                            {subject.percentage}%
+                                        </span>
+                                    </div>
+                                    <div className="year-stats">
+                                        <div className="year-stat">
+                                            <span className="stat-value">{subject.attended}</span>
+                                            <span className="stat-label">Attended</span>
                                         </div>
-                                        <span className="progress-text">{subject.percentage}%</span>
+                                        <div className="year-stat">
+                                            <span className="stat-value">{subject.totalLectures}</span>
+                                            <span className="stat-label">Total Lectures</span>
+                                        </div>
                                     </div>
-                                    <div className="stat-details">
-                                        <span>Attended: {subject.attended}/{subject.totalLectures}</span>
+                                    <div className="attendance-bar">
+                                        <div
+                                            className="attendance-fill"
+                                            style={{
+                                                width: `${subject.percentage}%`,
+                                                background: getStatusColor(subject.status)
+                                            }}
+                                        ></div>
                                     </div>
                                 </div>
-                            </div>
-                        ))
+                            );
+                        })
                     ) : (
-                        <div className="empty-state">No attendance records yet</div>
+                        <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '40px', color: 'var(--gray-500)' }}>
+                            No attendance records yet
+                        </div>
                     )}
                 </div>
             </div>
 
             {/* Test Performance Overview */}
-            <div className="section">
-                <h3 className="section-title">📝 Latest Test Scores</h3>
-                <div className="stats-grid">
+            <div className="card" style={{ marginBottom: '24px' }}>
+                <div className="card-header">
+                    <h2 className="card-title">📝 Performance Overview</h2>
+                </div>
+                <div className="year-cards-grid">
                     {stats?.testStats && stats.testStats.length > 0 ? (
-                        stats.testStats.map((test, index) => (
-                            <div key={index} className="stat-card">
-                                <div className="stat-card-header">
-                                    <h4>{test.subject}</h4>
-                                    <span className="badge">{test.testType}</span>
-                                </div>
-                                <div className="stat-card-body">
-                                    <div className="test-score">
-                                        <span className="score-value">{test.score}</span>
-                                        <span className="score-divider">/</span>
-                                        <span className="score-max">{test.maxScore}</span>
+                        stats.testStats.map((test, index) => {
+                            const getStatusColor = (percentage) => {
+                                if (percentage >= 75) return 'var(--success)';
+                                if (percentage >= 60) return 'var(--warning)';
+                                return 'var(--danger)';
+                            };
+                            const getStatusClassLocal = (percentage) => {
+                                if (percentage >= 75) return 'good';
+                                if (percentage >= 60) return 'warning';
+                                return 'critical';
+                            };
+                            return (
+                                <div key={index} className="year-card">
+                                    <div className="year-header">
+                                        <span className="year-number">{test.subject}</span>
+                                        <span className={`attendance-badge ${getStatusClassLocal(test.percentage)}`}>
+                                            {test.percentage}%
+                                        </span>
                                     </div>
-                                    <div className="progress-container">
-                                        <div className="progress-bar">
-                                            <div
-                                                className={`progress-fill ${test.percentage >= 60 ? 'status-good' : test.percentage >= 40 ? 'status-warning' : 'status-low'}`}
-                                                style={{ width: `${test.percentage}%` }}
-                                            ></div>
+                                    <div style={{ padding: '8px 0', color: 'var(--gray-600)', fontSize: '0.85rem' }}>
+                                        {test.testType}
+                                    </div>
+                                    <div className="year-stats">
+                                        <div className="year-stat">
+                                            <span className="stat-value">{test.score}</span>
+                                            <span className="stat-label">Score</span>
                                         </div>
-                                        <span className="progress-text">{test.percentage}%</span>
+                                        <div className="year-stat">
+                                            <span className="stat-value">{test.maxScore}</span>
+                                            <span className="stat-label">Max Score</span>
+                                        </div>
+                                    </div>
+                                    <div className="attendance-bar">
+                                        <div
+                                            className="attendance-fill"
+                                            style={{
+                                                width: `${test.percentage}%`,
+                                                background: getStatusColor(test.percentage)
+                                            }}
+                                        ></div>
                                     </div>
                                 </div>
-                            </div>
-                        ))
+                            );
+                        })
                     ) : (
-                        <div className="empty-state">No test records yet</div>
+                        <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '40px', color: 'var(--gray-500)' }}>
+                            No test records yet
+                        </div>
                     )}
                 </div>
             </div>

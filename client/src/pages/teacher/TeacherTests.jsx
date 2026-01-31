@@ -47,7 +47,7 @@ const TeacherTests = () => {
         <div>
             <div className="card">
                 <div className="card-header">
-                    <h2 className="card-title">📝 Test Management</h2>
+                    <h2 className="card-title">Test Management</h2>
                     <p style={{ margin: 0, color: 'var(--gray-500)', fontSize: '0.9rem' }}>
                         Click on a class to manage tests and enter marks
                     </p>

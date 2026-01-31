@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../services/api';
+import { FiClipboard } from 'react-icons/fi';
 
 const CCAttendance = () => {
     const [attendanceData, setAttendanceData] = useState([]);
@@ -46,7 +47,7 @@ const CCAttendance = () => {
         <div>
             <div className="card">
                 <div className="card-header">
-                    <h2 className="card-title">📋 Attendance Overview</h2>
+                    <h2 className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><FiClipboard size={20} /> Attendance Overview</h2>
                 </div>
 
                 <div className="year-cards-grid">

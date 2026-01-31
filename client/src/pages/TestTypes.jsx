@@ -120,14 +120,14 @@ const TestTypes = () => {
             <div className="card">
                 <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
                     <div>
-                        <h2 className="card-title">📝 Test Types</h2>
+                        <h2 className="card-title">Test Types</h2>
                         <p style={{ margin: 0, color: 'var(--gray-500)', fontSize: '0.9rem' }}>
                             Manage examination types that teachers can use for recording marks
                         </p>
                     </div>
                     <div style={{ display: 'flex', gap: '12px' }}>
                         <button className="btn btn-ghost" onClick={handleSeedDefaults}>
-                            🌱 Seed Defaults
+                            Seed Defaults
                         </button>
                         <button className="btn btn-primary" onClick={() => handleOpenModal()}>
                             + Add Test Type
@@ -166,7 +166,7 @@ const TestTypes = () => {
                                                 alignItems: 'center',
                                                 gap: '8px'
                                             }}>
-                                                📋 {type.name}
+                                                {type.name}
                                             </span>
                                         </td>
                                         <td style={{ color: 'var(--gray-600)' }}>
@@ -189,7 +189,7 @@ const TestTypes = () => {
                                                     onClick={() => handleOpenModal(type)}
                                                     title="Edit"
                                                 >
-                                                    ✏️
+                                                    Edit
                                                 </button>
                                                 <button
                                                     className="btn btn-ghost"
@@ -197,7 +197,7 @@ const TestTypes = () => {
                                                     title="Delete"
                                                     style={{ color: 'var(--danger)' }}
                                                 >
-                                                    🗑️
+                                                    Delete
                                                 </button>
                                             </div>
                                         </td>
@@ -208,7 +208,6 @@ const TestTypes = () => {
                     </div>
                 ) : (
                     <div style={{ padding: '60px', textAlign: 'center', color: 'var(--gray-500)' }}>
-                        <div style={{ fontSize: '3rem', marginBottom: '16px' }}>📝</div>
                         <h3>No Test Types Yet</h3>
                         <p>Click "Seed Defaults" to create common test types or add them manually.</p>
                     </div>
@@ -294,3 +293,4 @@ const TestTypes = () => {
 };
 
 export default TestTypes;
+

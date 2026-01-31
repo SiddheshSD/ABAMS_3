@@ -104,6 +104,27 @@ const userSchema = new mongoose.Schema({
         type: Boolean,
         default: true
     },
+    // Roll number for students (auto-assigned based on last name)
+    rollNo: {
+        type: Number
+    },
+    // Profile fields
+    address: {
+        street: { type: String, trim: true },
+        city: { type: String, trim: true },
+        state: { type: String, trim: true },
+        pincode: { type: String, trim: true }
+    },
+    about: {
+        type: String,
+        trim: true,
+        maxlength: 500
+    },
+    emergencyContact: {
+        name: { type: String, trim: true },
+        phone: { type: String, trim: true },
+        relation: { type: String, trim: true }
+    },
     createdAt: {
         type: Date,
         default: Date.now

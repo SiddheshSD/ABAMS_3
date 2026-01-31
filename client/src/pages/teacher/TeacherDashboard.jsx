@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../services/api';
+import { FiBook, FiClock, FiAlertCircle, FiCheck, FiClipboard, FiFileText, FiCalendar, FiTarget } from 'react-icons/fi';
 
 const TeacherDashboard = () => {
     const [stats, setStats] = useState(null);
@@ -43,8 +44,15 @@ const TeacherDashboard = () => {
         }
     };
 
-    const getStatusColor = (status) => {
-        switch (status) {
+    const getStatusColor = (statusOrPercentage) => {
+        // Handle numeric percentage
+        if (typeof statusOrPercentage === 'number') {
+            if (statusOrPercentage >= 75) return 'var(--success)';
+            if (statusOrPercentage >= 60) return 'var(--warning)';
+            return 'var(--danger)';
+        }
+        // Handle string status
+        switch (statusOrPercentage) {
             case 'good': return 'var(--success)';
             case 'warning': return 'var(--warning)';
             case 'low': return 'var(--danger)';
@@ -52,8 +60,15 @@ const TeacherDashboard = () => {
         }
     };
 
-    const getStatusClass = (status) => {
-        switch (status) {
+    const getStatusClass = (statusOrPercentage) => {
+        // Handle numeric percentage
+        if (typeof statusOrPercentage === 'number') {
+            if (statusOrPercentage >= 75) return 'good';
+            if (statusOrPercentage >= 60) return 'warning';
+            return 'critical';
+        }
+        // Handle string status
+        switch (statusOrPercentage) {
             case 'good': return 'good';
             case 'warning': return 'warning';
             case 'low': return 'critical';
@@ -85,8 +100,8 @@ const TeacherDashboard = () => {
                     color: 'white'
                 }}>
                     <div className="card-header" style={{ borderBottom: 'none' }}>
-                        <h2 className="card-title" style={{ color: 'white' }}>
-                            🎯 Current Lecture
+                        <h2 className="card-title" style={{ color: 'white', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <FiTarget size={20} /> Current Lecture
                         </h2>
                     </div>
                     <div style={{ padding: '0 24px 24px' }}>
@@ -107,10 +122,13 @@ const TeacherDashboard = () => {
                                 style={{
                                     background: currentLecture.attendanceTaken ? 'rgba(255,255,255,0.3)' : 'white',
                                     color: currentLecture.attendanceTaken ? 'white' : 'var(--primary)',
-                                    cursor: currentLecture.attendanceTaken ? 'not-allowed' : 'pointer'
+                                    cursor: currentLecture.attendanceTaken ? 'not-allowed' : 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '8px'
                                 }}
                             >
-                                {currentLecture.attendanceTaken ? '✓ Attendance Taken' : '📋 Take Attendance'}
+                                {currentLecture.attendanceTaken ? <><FiCheck /> Attendance Taken</> : <><FiClipboard /> Take Attendance</>}
                             </button>
                         </div>
                     </div>
@@ -120,21 +138,21 @@ const TeacherDashboard = () => {
             {/* Quick Stats Row */}
             <div className="stats-grid">
                 <div className="stat-card">
-                    <div className="stat-icon classes">📚</div>
+                    <div className="stat-icon classes"><FiBook size={24} /></div>
                     <div className="stat-info">
                         <h3>{stats?.totalClasses || 0}</h3>
                         <p>Assigned Classes</p>
                     </div>
                 </div>
                 <div className="stat-card">
-                    <div className="stat-icon" style={{ background: 'linear-gradient(135deg, #f59e0b, #fbbf24)' }}>⏳</div>
+                    <div className="stat-icon" style={{ background: 'linear-gradient(135deg, #f59e0b, #fbbf24)' }}><FiClock size={24} /></div>
                     <div className="stat-info">
                         <h3>{stats?.pendingLeaves || 0}</h3>
                         <p>Pending Leaves</p>
                     </div>
                 </div>
                 <div className="stat-card">
-                    <div className="stat-icon" style={{ background: 'linear-gradient(135deg, #ef4444, #f87171)' }}>📢</div>
+                    <div className="stat-icon" style={{ background: 'linear-gradient(135deg, #ef4444, #f87171)' }}><FiAlertCircle size={24} /></div>
                     <div className="stat-info">
                         <h3>{stats?.openComplaints || 0}</h3>
                         <p>Open Complaints</p>
@@ -142,10 +160,10 @@ const TeacherDashboard = () => {
                 </div>
             </div>
 
-            {/* Assigned Classes */}
+            {/* Attendance & Performance Overview */}
             <div className="card" style={{ marginTop: '24px' }}>
                 <div className="card-header">
-                    <h2 className="card-title">My Classes</h2>
+                    <h2 className="card-title">Attendance & Performance Overview</h2>
                 </div>
                 <div className="year-cards-grid">
                     {stats?.classStats?.length > 0 ? (
@@ -157,35 +175,40 @@ const TeacherDashboard = () => {
                                 onClick={() => navigate(`/teacher/attendance/${cls.classId}/${encodeURIComponent(cls.subject)}`)}
                             >
                                 <div className="year-header">
-                                    <span className="year-number">{cls.className}</span>
-                                    <span className={`attendance-badge ${getStatusClass(cls.status)}`}>
-                                        {cls.avgAttendance}%
+                                    <span className="year-number">{cls.subject}</span>
+                                    <span className={`attendance-badge ${getStatusClass(cls.avgAttendance || 0)}`}>
+                                        {cls.avgAttendance || 0}%
                                     </span>
                                 </div>
-                                <div style={{ padding: '12px 0', borderBottom: '1px solid var(--gray-200)' }}>
-                                    <p style={{ margin: 0, color: 'var(--gray-600)', fontSize: '0.9rem' }}>
-                                        {cls.subject}
-                                    </p>
-                                    <p style={{ margin: '4px 0 0', color: 'var(--gray-500)', fontSize: '0.85rem' }}>
-                                        {cls.department} • Year {cls.year}
-                                    </p>
+                                <div style={{ padding: '8px 0', color: 'var(--gray-600)', fontSize: '0.85rem' }}>
+                                    {cls.className} • {cls.department} • Year {cls.year}
                                 </div>
                                 <div className="year-stats">
                                     <div className="year-stat">
-                                        <span className="stat-value">{cls.totalStudents}</span>
-                                        <span className="stat-label">Students</span>
+                                        <span className="stat-value">{cls.avgAttendance || 0}%</span>
+                                        <span className="stat-label">Attendance</span>
                                     </div>
                                     <div className="year-stat">
-                                        <span className="stat-value">{cls.avgAttendance}%</span>
-                                        <span className="stat-label">Avg Attendance</span>
+                                        <span className="stat-value">{cls.avgTestScore || 0}%</span>
+                                        <span className="stat-label">Avg Score</span>
+                                    </div>
+                                </div>
+                                <div className="year-stats" style={{ marginTop: '8px' }}>
+                                    <div className="year-stat">
+                                        <span className="stat-value">{cls.totalLectures || 0}</span>
+                                        <span className="stat-label">Lectures</span>
+                                    </div>
+                                    <div className="year-stat">
+                                        <span className="stat-value">{cls.totalTests || 0}</span>
+                                        <span className="stat-label">Tests</span>
                                     </div>
                                 </div>
                                 <div className="attendance-bar">
                                     <div
                                         className="attendance-fill"
                                         style={{
-                                            width: `${cls.avgAttendance}%`,
-                                            background: getStatusColor(cls.status)
+                                            width: `${cls.avgAttendance || 0}%`,
+                                            background: getStatusColor(cls.avgAttendance || 0)
                                         }}
                                     ></div>
                                 </div>
@@ -207,19 +230,19 @@ const TeacherDashboard = () => {
                     </div>
                     <div className="quick-actions">
                         <a href="/teacher/attendance" className="action-btn">
-                            <span className="action-icon">📋</span>
+                            <span className="action-icon"><FiClipboard size={18} /></span>
                             <span>Take Attendance</span>
                         </a>
                         <a href="/teacher/tests" className="action-btn">
-                            <span className="action-icon">📝</span>
+                            <span className="action-icon"><FiFileText size={18} /></span>
                             <span>Record Tests</span>
                         </a>
                         <a href="/teacher/timetable" className="action-btn">
-                            <span className="action-icon">📅</span>
+                            <span className="action-icon"><FiCalendar size={18} /></span>
                             <span>View Timetable</span>
                         </a>
                         <a href="/teacher/leave-requests" className="action-btn">
-                            <span className="action-icon">🏖️</span>
+                            <span className="action-icon"><FiClock size={18} /></span>
                             <span>Leave Requests</span>
                         </a>
                     </div>
@@ -231,14 +254,14 @@ const TeacherDashboard = () => {
                     </div>
                     <div className="pending-list">
                         <div className="pending-item">
-                            <div className="pending-icon warning">⏳</div>
+                            <div className="pending-icon warning"><FiClock size={18} /></div>
                             <div className="pending-info">
                                 <span className="pending-count">{stats?.pendingLeaves || 0}</span>
                                 <span className="pending-label">Leave Requests Pending</span>
                             </div>
                         </div>
                         <div className="pending-item">
-                            <div className="pending-icon danger">📢</div>
+                            <div className="pending-icon danger"><FiAlertCircle size={18} /></div>
                             <div className="pending-info">
                                 <span className="pending-count">{stats?.openComplaints || 0}</span>
                                 <span className="pending-label">Open Complaints</span>
@@ -252,3 +275,4 @@ const TeacherDashboard = () => {
 };
 
 export default TeacherDashboard;
+

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import api from '../services/api';
+import { FiUsers, FiUser, FiGrid, FiLayers } from 'react-icons/fi';
 
 const Dashboard = () => {
     const [stats, setStats] = useState({
@@ -37,28 +38,28 @@ const Dashboard = () => {
         <div>
             <div className="stats-grid">
                 <div className="stat-card">
-                    <div className="stat-icon students">👨‍🎓</div>
+                    <div className="stat-icon students"><FiUsers size={24} /></div>
                     <div className="stat-info">
                         <h3>{stats.students}</h3>
                         <p>Total Students</p>
                     </div>
                 </div>
                 <div className="stat-card">
-                    <div className="stat-icon teachers">👨‍🏫</div>
+                    <div className="stat-icon teachers"><FiUser size={24} /></div>
                     <div className="stat-info">
                         <h3>{stats.teachers}</h3>
                         <p>Total Teachers</p>
                     </div>
                 </div>
                 <div className="stat-card">
-                    <div className="stat-icon departments">🏢</div>
+                    <div className="stat-icon departments"><FiGrid size={24} /></div>
                     <div className="stat-info">
                         <h3>{stats.departments}</h3>
                         <p>Departments</p>
                     </div>
                 </div>
                 <div className="stat-card">
-                    <div className="stat-icon classes">📚</div>
+                    <div className="stat-icon classes"><FiLayers size={24} /></div>
                     <div className="stat-info">
                         <h3>{stats.classes}</h3>
                         <p>Classes</p>
@@ -80,3 +81,4 @@ const Dashboard = () => {
 };
 
 export default Dashboard;
+

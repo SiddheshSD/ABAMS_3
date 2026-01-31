@@ -26,7 +26,7 @@ const TeacherTestSheet = () => {
 
     // Edit mode state
     const [editingTest, setEditingTest] = useState(null);
-    const [editMarks, setEditMarks] = useState([]);
+    const [editedMarks, setEditedMarks] = useState([]);
 
     useEffect(() => {
         fetchData();
@@ -41,7 +41,7 @@ const TeacherTestSheet = () => {
 
             setClassInfo(sheetResponse.data.classInfo);
             setStudents(sheetResponse.data.students);
-            setTests(sheetResponse.data.tests);
+            setTests(sheetResponse.data.tests || []);
             setTestTypes(testTypesResponse.data);
 
             // Initialize new test marks with null scores
@@ -63,25 +63,28 @@ const TeacherTestSheet = () => {
         }
     };
 
-    const handleMarkChange = (studentId, score, isNew = true) => {
-        const numScore = score === '' ? null : parseFloat(score);
+    const formatDate = (date) => {
+        return new Date(date).toLocaleDateString('en-IN', {
+            day: '2-digit',
+            month: 'short',
+            year: 'numeric'
+        });
+    };
 
-        if (isNew) {
-            setNewTest(prev => ({
-                ...prev,
-                marks: prev.marks.map(m =>
-                    m.studentId === studentId ? { ...m, score: numScore } : m
-                )
-            }));
-        } else {
-            setEditMarks(prev =>
-                prev.map(m =>
-                    (m.studentId === studentId || m.studentId?._id === studentId)
-                        ? { ...m, score: numScore }
-                        : m
-                )
-            );
-        }
+    const getStudentScore = (test, studentId) => {
+        const mark = test.marks?.find(m => m.studentId === studentId || m.studentId?._id === studentId);
+        return mark?.score;
+    };
+
+    // New Test Form Handlers
+    const handleNewMarkChange = (studentId, value) => {
+        const numValue = value === '' ? null : parseFloat(value);
+        setNewTest(prev => ({
+            ...prev,
+            marks: prev.marks.map(m =>
+                m.studentId === studentId ? { ...m, score: numValue } : m
+            )
+        }));
     };
 
     const handleSaveNew = async () => {
@@ -97,8 +100,8 @@ const TeacherTestSheet = () => {
 
         // Validate marks
         for (const mark of newTest.marks) {
-            if (mark.score !== null && mark.score > newTest.maxScore) {
-                setMessage({ type: 'error', text: `Score cannot exceed max score of ${newTest.maxScore}` });
+            if (mark.score !== null && (mark.score < 0 || mark.score > newTest.maxScore)) {
+                setMessage({ type: 'error', text: `Score must be between 0 and ${newTest.maxScore}` });
                 return;
             }
         }
@@ -127,29 +130,38 @@ const TeacherTestSheet = () => {
         }
     };
 
-    const handleEdit = (test) => {
+    // Edit Handlers
+    const handleEditClick = (test) => {
         setEditingTest(test);
-        // Ensure all students have marks (fill missing with null)
-        // Use string IDs for consistent comparison
-        const existingMarks = new Map(
-            test.marks.map(m => [
-                (m.studentId?._id || m.studentId)?.toString(),
-                m.score
-            ])
-        );
-        const allMarks = students.map(s => ({
-            studentId: s._id,
-            score: existingMarks.has(s._id?.toString()) ? existingMarks.get(s._id?.toString()) : null
+        setEditedMarks(students.map(student => {
+            const existingMark = test.marks?.find(m => m.studentId === student._id || m.studentId?._id === student._id);
+            return {
+                studentId: student._id,
+                score: existingMark?.score ?? ''
+            };
         }));
-        setEditMarks(allMarks);
+    };
+
+    const handleScoreChange = (studentId, value) => {
+        const numValue = value === '' ? '' : parseFloat(value);
+        setEditedMarks(prev => prev.map(m => {
+            if (m.studentId === studentId) {
+                return { ...m, score: numValue };
+            }
+            return m;
+        }));
     };
 
     const handleSaveEdit = async () => {
-        // Validate marks
-        for (const mark of editMarks) {
-            if (mark.score !== null && mark.score > editingTest.maxScore) {
-                setMessage({ type: 'error', text: `Score cannot exceed max score of ${editingTest.maxScore}` });
-                return;
+        if (!editingTest) return;
+
+        // Validate scores
+        for (const mark of editedMarks) {
+            if (mark.score !== '' && mark.score !== null) {
+                if (mark.score < 0 || mark.score > editingTest.maxScore) {
+                    setMessage({ type: 'error', text: `Score must be between 0 and ${editingTest.maxScore}` });
+                    return;
+                }
             }
         }
 
@@ -158,21 +170,26 @@ const TeacherTestSheet = () => {
 
         try {
             await api.put(`/teacher/tests/${editingTest._id}`, {
-                marks: editMarks.map(m => ({
-                    studentId: m.studentId?._id || m.studentId,
-                    score: m.score
+                marks: editedMarks.map(m => ({
+                    studentId: m.studentId,
+                    score: m.score === '' ? null : m.score
                 }))
             });
-
-            setMessage({ type: 'success', text: 'Test updated successfully!' });
+            setMessage({ type: 'success', text: 'Test scores updated successfully!' });
+            await fetchData();
             setEditingTest(null);
-            fetchData();
+            setEditedMarks([]);
         } catch (error) {
-            console.error('Failed to update test:', error);
-            setMessage({ type: 'error', text: error.response?.data?.message || 'Failed to update test' });
+            console.error('Failed to save test scores:', error);
+            setMessage({ type: 'error', text: 'Failed to save test scores' });
         } finally {
             setSaving(false);
         }
+    };
+
+    const handleCancelEdit = () => {
+        setEditingTest(null);
+        setEditedMarks([]);
     };
 
     const handleDelete = async (id) => {
@@ -188,19 +205,6 @@ const TeacherTestSheet = () => {
         }
     };
 
-    const formatDate = (date) => {
-        return new Date(date).toLocaleDateString('en-IN', {
-            day: '2-digit',
-            month: '2-digit',
-            year: 'numeric'
-        });
-    };
-
-    const getStudentScore = (marks, studentId) => {
-        const mark = marks.find(m => (m.studentId?._id || m.studentId) === studentId);
-        return mark?.score ?? '';
-    };
-
     if (loading) {
         return (
             <div className="loading">
@@ -211,50 +215,67 @@ const TeacherTestSheet = () => {
 
     return (
         <div>
-            {/* Header */}
-            <div className="card" style={{ marginBottom: '24px' }}>
-                <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
-                    <div>
-                        <button
-                            className="btn btn-ghost"
-                            onClick={() => navigate('/teacher/tests')}
-                            style={{ marginBottom: '8px' }}
-                        >
-                            ← Back to Tests
-                        </button>
-                        <h2 className="card-title" style={{ margin: 0 }}>
-                            {classInfo?.className} - {classInfo?.subject}
-                        </h2>
-                        <p style={{ margin: '4px 0 0', color: 'var(--gray-500)' }}>
-                            {classInfo?.department} • Year {classInfo?.year}
-                        </p>
-                    </div>
-                    <button
-                        className="btn btn-primary"
-                        onClick={() => setShowNewForm(true)}
-                        disabled={showNewForm}
+            <div className="card">
+                <div className="card-header">
+                    <div
+                        style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            width: '100%',
+                            gap: '12px',
+                        }}
                     >
-                        + Create New Test
-                    </button>
-                </div>
-            </div>
+                        {/* LEFT SIDE */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                            <button
+                                className="btn btn-outline"
+                                onClick={() => navigate('/teacher/tests')}
+                            >
+                                ← Back
+                            </button>
 
-            {/* Messages */}
-            {message.text && (
-                <div className={`alert alert-${message.type}`} style={{ marginBottom: '24px' }}>
-                    {message.text}
-                </div>
-            )}
+                            <div>
+                                <h2 className="card-title" style={{ margin: 0 }}>
+                                    {classInfo?.className} - {decodedSubject} - Test Scores
+                                </h2>
+                                <p
+                                    style={{
+                                        margin: '4px 0 0',
+                                        color: 'var(--text-secondary)',
+                                        fontSize: '14px',
+                                    }}
+                                >
+                                    {classInfo?.department} • Year {classInfo?.year}
+                                </p>
+                            </div>
+                        </div>
 
-            {/* New Test Form */}
-            {showNewForm && (
-                <div className="card" style={{ marginBottom: '24px' }}>
-                    <div className="card-header">
-                        <h3 className="card-title">📝 Create New Test</h3>
+                        {/* RIGHT SIDE */}
+                        <button
+                            className="btn btn-primary"
+                            onClick={() => setShowNewForm(true)}
+                            disabled={showNewForm}
+                        >
+                            Create New Test
+                        </button>
                     </div>
-                    <div style={{ padding: '0 24px 24px' }}>
-                        <div className="form-row" style={{ display: 'flex', gap: '16px', marginBottom: '24px', flexWrap: 'wrap' }}>
-                            <div className="form-group" style={{ flex: '1', minWidth: '150px' }}>
+                </div>
+
+
+                {/* Messages */}
+                {message.text && (
+                    <div className={`alert alert-${message.type}`} style={{ margin: '0 16px 16px' }}>
+                        {message.text}
+                    </div>
+                )}
+
+                {/* New Test Form */}
+                {showNewForm && (
+                    <div className="form-section" style={{ margin: '0 16px 20px', padding: '16px', background: 'var(--success-light)', borderRadius: '8px' }}>
+                        <h3 style={{ marginBottom: '12px' }}>Create New Test</h3>
+                        <div style={{ display: 'flex', gap: '16px', marginBottom: '16px', flexWrap: 'wrap' }}>
+                            <div className="form-group" style={{ minWidth: '150px' }}>
                                 <label className="form-label">Test Type</label>
                                 <select
                                     className="form-input"
@@ -269,7 +290,7 @@ const TeacherTestSheet = () => {
                                     ))}
                                 </select>
                             </div>
-                            <div className="form-group" style={{ flex: '1', minWidth: '150px' }}>
+                            <div className="form-group" style={{ minWidth: '150px' }}>
                                 <label className="form-label">Date</label>
                                 <input
                                     type="date"
@@ -278,7 +299,7 @@ const TeacherTestSheet = () => {
                                     onChange={(e) => setNewTest(prev => ({ ...prev, date: e.target.value }))}
                                 />
                             </div>
-                            <div className="form-group" style={{ flex: '1', minWidth: '120px' }}>
+                            <div className="form-group" style={{ minWidth: '100px' }}>
                                 <label className="form-label">Max Score</label>
                                 <input
                                     type="number"
@@ -289,35 +310,31 @@ const TeacherTestSheet = () => {
                                 />
                             </div>
                         </div>
-
-                        <div className="table-container" style={{ maxHeight: '400px', overflowY: 'auto' }}>
-                            <table className="table">
-                                <thead style={{ position: 'sticky', top: 0, background: 'white', zIndex: 1 }}>
+                        <div className="table-container" style={{ maxHeight: '300px', overflowY: 'auto' }}>
+                            <table className="data-table">
+                                <thead>
                                     <tr>
-                                        <th style={{ width: '60px' }}>#</th>
                                         <th>Roll No</th>
                                         <th>Student Name</th>
-                                        <th style={{ width: '120px' }}>Marks (/{newTest.maxScore})</th>
+                                        <th>Score (out of {newTest.maxScore})</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {students.map((student, index) => {
+                                    {students.map(student => {
                                         const mark = newTest.marks.find(m => m.studentId === student._id);
                                         return (
                                             <tr key={student._id}>
-                                                <td>{index + 1}</td>
                                                 <td>{student.username}</td>
-                                                <td>{student.fullName}</td>
+                                                <td>{student.fullName || `${student.firstName} ${student.lastName}`}</td>
                                                 <td>
                                                     <input
                                                         type="number"
-                                                        className="form-input"
-                                                        style={{ width: '80px', textAlign: 'center' }}
-                                                        value={mark?.score ?? ''}
-                                                        onChange={(e) => handleMarkChange(student._id, e.target.value, true)}
                                                         min="0"
                                                         max={newTest.maxScore}
-                                                        placeholder="-"
+                                                        value={mark?.score ?? ''}
+                                                        onChange={(e) => handleNewMarkChange(student._id, e.target.value)}
+                                                        style={{ width: '80px', padding: '6px', borderRadius: '4px', border: '1px solid var(--border)' }}
+                                                        placeholder="—"
                                                     />
                                                 </td>
                                             </tr>
@@ -326,154 +343,60 @@ const TeacherTestSheet = () => {
                                 </tbody>
                             </table>
                         </div>
-
-                        <div style={{ display: 'flex', gap: '12px', marginTop: '24px', justifyContent: 'flex-end' }}>
-                            <button className="btn btn-ghost" onClick={() => setShowNewForm(false)}>
-                                Cancel
-                            </button>
+                        <div style={{ marginTop: '16px', display: 'flex', gap: '12px' }}>
                             <button className="btn btn-primary" onClick={handleSaveNew} disabled={saving}>
                                 {saving ? 'Saving...' : 'Save Test'}
                             </button>
+                            <button className="btn btn-outline" onClick={() => setShowNewForm(false)}>
+                                Cancel
+                            </button>
                         </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Existing Tests */}
-            <div className="card">
-                <div className="card-header">
-                    <h3 className="card-title">📊 Test Records</h3>
-                </div>
-
-                {tests.length > 0 ? (
-                    <div style={{ overflowX: 'auto' }}>
-                        <table className="table">
-                            <thead>
-                                <tr>
-                                    <th>Test Type</th>
-                                    <th>Date</th>
-                                    <th>Max Score</th>
-                                    <th>Entries</th>
-                                    <th>Average</th>
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {tests.map(test => {
-                                    const validMarks = test.marks.filter(m => m.score !== null && m.score !== undefined);
-                                    const avgScore = validMarks.length > 0
-                                        ? (validMarks.reduce((sum, m) => sum + m.score, 0) / validMarks.length).toFixed(1)
-                                        : 'N/A';
-
-                                    return (
-                                        <tr key={test._id}>
-                                            <td>
-                                                <span style={{ fontWeight: '500' }}>{test.testType}</span>
-                                            </td>
-                                            <td>{formatDate(test.date)}</td>
-                                            <td>{test.maxScore}</td>
-                                            <td>
-                                                <span className="badge" style={{ background: 'var(--primary-light)', color: 'var(--primary)' }}>
-                                                    {validMarks.length}/{students.length}
-                                                </span>
-                                            </td>
-                                            <td>
-                                                {avgScore !== 'N/A' ? (
-                                                    <span style={{
-                                                        color: (parseFloat(avgScore) / test.maxScore) >= 0.6 ? 'var(--success)' : 'var(--warning)'
-                                                    }}>
-                                                        {avgScore}/{test.maxScore}
-                                                    </span>
-                                                ) : avgScore}
-                                            </td>
-                                            <td>
-                                                <div className="action-buttons">
-                                                    <button
-                                                        className="btn btn-ghost"
-                                                        onClick={() => handleEdit(test)}
-                                                        title="Edit"
-                                                    >
-                                                        ✏️
-                                                    </button>
-                                                    <button
-                                                        className="btn btn-ghost"
-                                                        onClick={() => handleDelete(test._id)}
-                                                        title="Delete"
-                                                        style={{ color: 'var(--danger)' }}
-                                                    >
-                                                        🗑️
-                                                    </button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    );
-                                })}
-                            </tbody>
-                        </table>
-                    </div>
-                ) : (
-                    <div style={{ padding: '40px', textAlign: 'center', color: 'var(--gray-500)' }}>
-                        <p>No tests created yet. Click "Create New Test" to get started.</p>
                     </div>
                 )}
-            </div>
 
-            {/* Edit Modal */}
-            {editingTest && (
-                <div className="modal-overlay" style={{
-                    position: 'fixed',
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    background: 'rgba(0,0,0,0.5)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    zIndex: 1000
-                }}>
-                    <div className="modal-content" style={{
-                        background: 'white',
-                        borderRadius: '12px',
-                        width: '90%',
-                        maxWidth: '600px',
-                        maxHeight: '80vh',
-                        overflow: 'hidden',
-                        display: 'flex',
-                        flexDirection: 'column'
-                    }}>
-                        <div style={{ padding: '20px', borderBottom: '1px solid var(--gray-200)' }}>
-                            <h3 style={{ margin: 0 }}>Edit Test: {editingTest.testType}</h3>
-                            <p style={{ margin: '4px 0 0', color: 'var(--gray-500)', fontSize: '0.9rem' }}>
-                                Max Score: {editingTest.maxScore}
-                            </p>
+                {/* Edit Test Form */}
+                {editingTest && (
+                    <div className="form-section" style={{ margin: '0 16px 20px', padding: '16px', background: 'var(--primary-light)', borderRadius: '8px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                            <h3 style={{ margin: 0 }}>
+                                ✏️ Editing: {editingTest.testType} • {formatDate(editingTest.date)} (Max: {editingTest.maxScore})
+                            </h3>
+                            <button
+                                className="btn btn-danger"
+                                onClick={() => {
+                                    handleDelete(editingTest._id);
+                                    handleCancelEdit();
+                                }}
+                                style={{ fontSize: '12px', padding: '6px 12px' }}
+                            >
+                                🗑️ Delete Test
+                            </button>
                         </div>
-                        <div style={{ flex: 1, overflow: 'auto', padding: '0' }}>
-                            <table className="table">
-                                <thead style={{ position: 'sticky', top: 0, background: 'white' }}>
+                        <div className="table-container" style={{ maxHeight: '300px', overflowY: 'auto' }}>
+                            <table className="data-table">
+                                <thead>
                                     <tr>
-                                        <th>#</th>
+                                        <th>Roll No</th>
                                         <th>Student Name</th>
-                                        <th style={{ textAlign: 'center' }}>Marks (/{editingTest.maxScore})</th>
+                                        <th>Score (out of {editingTest.maxScore})</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {students.map((student, index) => {
-                                        const score = getStudentScore(editMarks, student._id);
+                                    {students.map(student => {
+                                        const mark = editedMarks.find(m => m.studentId === student._id);
                                         return (
                                             <tr key={student._id}>
-                                                <td>{index + 1}</td>
-                                                <td>{student.fullName}</td>
-                                                <td style={{ textAlign: 'center' }}>
+                                                <td>{student.username}</td>
+                                                <td>{student.fullName || `${student.firstName} ${student.lastName}`}</td>
+                                                <td>
                                                     <input
                                                         type="number"
-                                                        className="form-input"
-                                                        style={{ width: '80px', textAlign: 'center' }}
-                                                        value={score}
-                                                        onChange={(e) => handleMarkChange(student._id, e.target.value, false)}
                                                         min="0"
                                                         max={editingTest.maxScore}
-                                                        placeholder="-"
+                                                        value={mark?.score ?? ''}
+                                                        onChange={(e) => handleScoreChange(student._id, e.target.value)}
+                                                        style={{ width: '80px', padding: '6px', borderRadius: '4px', border: '1px solid var(--border)' }}
+                                                        placeholder="—"
                                                     />
                                                 </td>
                                             </tr>
@@ -482,15 +405,95 @@ const TeacherTestSheet = () => {
                                 </tbody>
                             </table>
                         </div>
-                        <div style={{ padding: '20px', borderTop: '1px solid var(--gray-200)', display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
-                            <button className="btn btn-ghost" onClick={() => setEditingTest(null)}>Cancel</button>
+                        <div style={{ marginTop: '16px', display: 'flex', gap: '12px' }}>
                             <button className="btn btn-primary" onClick={handleSaveEdit} disabled={saving}>
                                 {saving ? 'Saving...' : 'Save Changes'}
                             </button>
+                            <button className="btn btn-outline" onClick={handleCancelEdit}>
+                                Cancel
+                            </button>
                         </div>
                     </div>
+                )}
+
+                {/* Spreadsheet-style Test Scores Table */}
+                <div className="table-container" style={{ overflowX: 'auto' }}>
+                    <table className="data-table">
+                        <thead>
+                            <tr>
+                                <th style={{ position: 'sticky', left: 0, background: 'var(--bg)', zIndex: 2, minWidth: '80px' }}>Roll No</th>
+                                <th style={{ position: 'sticky', left: '80px', background: 'var(--bg)', zIndex: 2, minWidth: '150px' }}>Name</th>
+                                {tests.map(test => (
+                                    <th key={test._id} style={{ minWidth: '120px', textAlign: 'center' }}>
+                                        <div>{test.testType}</div>
+                                        <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
+                                            {formatDate(test.date)}
+                                        </div>
+                                        <div style={{ fontSize: '10px', color: 'var(--text-tertiary)' }}>
+                                            Max: {test.maxScore}
+                                        </div>
+                                        <button
+                                            className="btn-icon"
+                                            onClick={() => handleEditClick(test)}
+                                            title="Edit"
+                                            style={{ marginTop: '4px' }}
+                                        >
+                                            ✏️
+                                        </button>
+                                    </th>
+                                ))}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {students.map(student => (
+                                <tr key={student._id}>
+                                    <td style={{ position: 'sticky', left: 0, background: 'var(--bg)', zIndex: 1 }}>
+                                        {student.username}
+                                    </td>
+                                    <td style={{ position: 'sticky', left: '80px', background: 'var(--bg)', zIndex: 1 }}>
+                                        {student.fullName || `${student.firstName} ${student.lastName}`}
+                                    </td>
+                                    {tests.map(test => {
+                                        const score = getStudentScore(test, student._id);
+                                        const percentage = score !== undefined && score !== null
+                                            ? Math.round((score / test.maxScore) * 100)
+                                            : null;
+
+                                        return (
+                                            <td key={test._id} style={{ textAlign: 'center' }}>
+                                                {score !== undefined && score !== null ? (
+                                                    <span style={{
+                                                        padding: '4px 12px',
+                                                        borderRadius: '12px',
+                                                        fontSize: '12px',
+                                                        fontWeight: '500',
+                                                        background: percentage >= 70 ? 'rgba(16, 185, 129, 0.1)' :
+                                                            percentage >= 50 ? 'rgba(245, 158, 11, 0.1)' :
+                                                                'rgba(239, 68, 68, 0.1)',
+                                                        color: percentage >= 70 ? 'var(--success)' :
+                                                            percentage >= 50 ? 'var(--warning)' :
+                                                                'var(--danger)'
+                                                    }}>
+                                                        {score}/{test.maxScore}
+                                                    </span>
+                                                ) : (
+                                                    <span style={{ color: 'var(--text-tertiary)' }}>—</span>
+                                                )}
+                                            </td>
+                                        );
+                                    })}
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
                 </div>
-            )}
+
+                {tests.length === 0 && (
+                    <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                        No test records found for {decodedSubject}. Click "+ Create New Test" to get started.
+                    </div>
+                )}
+            </div>
         </div>
     );
 };

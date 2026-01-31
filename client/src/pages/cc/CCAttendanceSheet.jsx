@@ -107,7 +107,7 @@ const CCAttendanceSheet = () => {
                         <button className="btn btn-outline" onClick={() => navigate('/cc/attendance')}>
                             ← Back
                         </button>
-                        <h2 className="card-title">📋 {decodeURIComponent(subject)} - Attendance</h2>
+                        <h2 className="card-title">{decodeURIComponent(subject)} - Attendance</h2>
                     </div>
                 </div>
 

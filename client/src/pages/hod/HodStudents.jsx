@@ -110,15 +110,21 @@ const HodStudents = () => {
     const exportUnassignedStudents = async () => {
         setExporting(true);
         try {
-            // Get all students without filtering by class to include unassigned
-            const response = await api.get('/hod/students');
+            // Build params with current filters
+            const params = new URLSearchParams();
+            if (filters.year) params.append('year', filters.year);
+            // Don't filter by classId - we want unassigned students
+
+            const response = await api.get(`/hod/students?${params}`);
             const allStudents = response.data;
 
             // Filter to only unassigned students (no classId or classId is null)
             const unassignedStudents = allStudents.filter(s => !s.classId);
 
             if (unassignedStudents.length === 0) {
-                alert('No unassigned students found.');
+                alert(filters.year
+                    ? `No unassigned students found for Year ${filters.year}.`
+                    : 'No unassigned students found.');
                 setExporting(false);
                 return;
             }
@@ -138,11 +144,12 @@ const HodStudents = () => {
             ].join('\n');
 
             // Create and download the file
+            const yearSuffix = filters.year ? `_year${filters.year}` : '';
             const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `unassigned_students_${new Date().toISOString().split('T')[0]}.csv`;
+            a.download = `unassigned_students${yearSuffix}_${new Date().toISOString().split('T')[0]}.csv`;
             a.click();
             window.URL.revokeObjectURL(url);
         } catch (error) {
@@ -163,14 +170,14 @@ const HodStudents = () => {
                 <div style={{
                     padding: '16px 24px',
                     background: 'linear-gradient(135deg, var(--primary-light) 0%, var(--primary) 100%)',
-                    borderRadius: '12px 12px 0 0',
+                    borderRadius: '12px',
                     color: 'white',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between'
                 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                        <span style={{ fontSize: '2rem' }}>👨‍🎓</span>
+                        <span style={{ fontSize: '2rem' }}></span>
                         <div>
                             <div style={{ fontSize: '1.75rem', fontWeight: '700' }}>{students.length}</div>
                             <div style={{ fontSize: '0.875rem', opacity: 0.9 }}>
@@ -204,9 +211,11 @@ const HodStudents = () => {
                             className="btn btn-secondary"
                             onClick={exportUnassignedStudents}
                             disabled={exporting}
-                            title="Export students not yet assigned to a class"
+                            title={filters.year
+                                ? `Export Year ${filters.year} students not yet assigned to a class`
+                                : 'Export students not yet assigned to a class'}
                         >
-                            {exporting ? '⏳ Exporting...' : '📤 Export Unassigned'}
+                            {exporting ? '⏳ Exporting...' : `📤 Export Unassigned${filters.year ? ` (Year ${filters.year})` : ''}`}
                         </button>
                         <button
                             className="btn btn-primary"

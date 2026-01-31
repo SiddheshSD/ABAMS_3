@@ -191,7 +191,7 @@ const Users = () => {
             <div className="card">
                 <div className="toolbar">
                     <div className="search-box">
-                        <span className="search-icon">🔍</span>
+                        <span className="search-icon"></span>
                         <input
                             type="text"
                             placeholder="Search users..."
@@ -209,13 +209,13 @@ const Users = () => {
                             <option value="parent">Parent</option>
                         </select>
                         <button className="btn btn-secondary" onClick={handleDownloadTemplate}>
-                            📥 Template
+                            Template
                         </button>
                         <button className="btn btn-secondary" onClick={() => setBulkModalOpen(true)}>
-                            📤 Bulk Upload
+                            Bulk Upload
                         </button>
                         <button className="btn btn-primary" onClick={openAddModal}>
-                            ➕ Add User
+                            + Add User
                         </button>
                     </div>
                 </div>
@@ -248,9 +248,9 @@ const Users = () => {
                                     </td>
                                     <td>
                                         <div className="actions-cell">
-                                            <button className="btn-icon" onClick={() => handleEdit(user)} title="Edit">✏️</button>
-                                            <button className="btn-icon" onClick={() => handleResetPassword(user._id)} title="Reset Password">🔑</button>
-                                            <button className="btn-icon" onClick={() => handleDelete(user._id)} title="Delete">🗑️</button>
+                                            <button className="btn-icon" onClick={() => handleEdit(user)} title="Edit">Edit</button>
+                                            <button className="btn-icon" onClick={() => handleResetPassword(user._id)} title="Reset Password">Reset</button>
+                                            <button className="btn-icon" onClick={() => handleDelete(user._id)} title="Delete">Delete</button>
                                         </div>
                                     </td>
                                 </tr>
@@ -259,7 +259,7 @@ const Users = () => {
                     </table>
                     {filteredUsers.length === 0 && (
                         <div className="empty-state">
-                            <div className="empty-icon">👥</div>
+                            <div className="empty-icon"></div>
                             <h3>No users found</h3>
                             <p>Try adjusting your search or filters</p>
                         </div>
@@ -387,7 +387,7 @@ const Users = () => {
 
                 {credentials && (
                     <div className="credentials-box">
-                        <h4>🔐 Generated Credentials</h4>
+                        <h4>Generated Credentials</h4>
                         <div className="credential-item">
                             <span className="credential-label">Username:</span>
                             <span className="credential-value">{credentials.username}</span>
@@ -397,7 +397,7 @@ const Users = () => {
                             <span className="credential-value">{credentials.password}</span>
                         </div>
                         <p style={{ fontSize: '12px', color: 'var(--gray-500)', marginTop: '8px' }}>
-                            ⚠️ Save these credentials. User must change password on first login.
+                            Save these credentials. User must change password on first login.
                         </p>
                     </div>
                 )}
@@ -425,7 +425,7 @@ const Users = () => {
                             Upload an Excel file (.xlsx) with columns: <strong>firstName, fatherName, lastName, dob, role, email, phone</strong>
                         </p>
                         <p style={{ marginBottom: '16px', color: 'var(--gray-500)', fontSize: '13px' }}>
-                            💡 Click "📥 Template" button to download a sample file with correct format
+                            Click "Template" button to download a sample file with correct format
                         </p>
                         <div className="file-upload" onClick={() => document.getElementById('bulkFile').click()}>
                             <input
@@ -434,14 +434,14 @@ const Users = () => {
                                 accept=".xlsx,.xls"
                                 onChange={(e) => setBulkFile(e.target.files[0])}
                             />
-                            <div className="file-upload-icon">📁</div>
+                            <div className="file-upload-icon"></div>
                             <p>{bulkFile ? bulkFile.name : 'Click to select file or drag and drop'}</p>
                         </div>
                     </>
                 ) : (
                     <div>
                         <div style={{ textAlign: 'center', marginBottom: '20px' }}>
-                            <div style={{ fontSize: '48px' }}>✅</div>
+                            <div style={{ fontSize: '48px' }}></div>
                             <h3>Upload Complete</h3>
                             <p style={{ color: 'var(--gray-600)' }}>
                                 {bulkResult.successCount} users created, {bulkResult.failedCount} failed

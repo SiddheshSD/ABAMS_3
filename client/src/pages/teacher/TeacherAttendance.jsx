@@ -47,7 +47,7 @@ const TeacherAttendance = () => {
         <div>
             <div className="card">
                 <div className="card-header">
-                    <h2 className="card-title">📋 Attendance Management</h2>
+                    <h2 className="card-title">Attendance Management</h2>
                     <p style={{ margin: 0, color: 'var(--gray-500)', fontSize: '0.9rem' }}>
                         Click on a class to take or view attendance
                     </p>
@@ -123,13 +123,13 @@ const TeacherAttendance = () => {
                                     handleCardClick(item.classId, item.subject);
                                 }}
                             >
-                                📋 Manage Attendance
+                                Manage Attendance
                             </button>
                         </div>
                     ))
                 ) : (
                     <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '60px', color: 'var(--gray-500)' }}>
-                        <div style={{ fontSize: '3rem', marginBottom: '16px' }}>📋</div>
+                        <div style={{ fontSize: '3rem', marginBottom: '16px' }}></div>
                         <h3>No Classes Assigned</h3>
                         <p>You will see your assigned classes here once you're added to the timetable.</p>
                     </div>

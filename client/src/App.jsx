@@ -15,6 +15,7 @@ import TimeSlots from './pages/TimeSlots';
 import Timetable from './pages/Timetable';
 import Subjects from './pages/Subjects';
 import TestTypes from './pages/TestTypes';
+import Profile from './pages/Profile';
 import PlaceholderDashboard from './pages/PlaceholderDashboard';
 
 // HOD Pages
@@ -199,6 +200,9 @@ function App() {
             <Route path="timetable" element={<AdminRoute><Timetable /></AdminRoute>} />
             <Route path="subjects" element={<AdminRoute><Subjects /></AdminRoute>} />
             <Route path="test-types" element={<AdminRoute><TestTypes /></AdminRoute>} />
+
+            {/* Profile Route - accessible to all authenticated users */}
+            <Route path="profile" element={<Profile />} />
 
             {/* HOD Routes */}
             <Route path="hod/dashboard" element={<HodRoute><HodDashboard /></HodRoute>} />
