@@ -15,6 +15,7 @@ const Students = () => {
     const [credentials, setCredentials] = useState(null);
     const [bulkFile, setBulkFile] = useState(null);
     const [bulkResult, setBulkResult] = useState(null);
+    const [uploading, setUploading] = useState(false);
 
     const [formData, setFormData] = useState({
         firstName: '', fatherName: '', lastName: '', motherName: '',
@@ -108,6 +109,7 @@ const Students = () => {
 
     const handleBulkUpload = async () => {
         if (!bulkFile) return;
+        setUploading(true);
         const fd = new FormData();
         fd.append('file', bulkFile);
         try {
@@ -118,6 +120,8 @@ const Students = () => {
             fetchData();
         } catch (error) {
             alert('Upload failed');
+        } finally {
+            setUploading(false);
         }
     };
 
@@ -156,6 +160,27 @@ const Students = () => {
     return (
         <div>
             <div className="card">
+                {/* Student Count Display */}
+                <div style={{
+                    padding: '16px 24px',
+                    background: 'linear-gradient(135deg, var(--success-light, #2d8021ff) 10%, var(--success, #ffffffff) 100%)',
+                    borderRadius: '12px 12px 0 0',
+                    color: 'white',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between'
+                }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <span style={{ fontSize: '2rem' }}>👨‍🎓</span>
+                        <div>
+                            <div style={{ fontSize: '1.75rem', fontWeight: '700' }}>{filteredStudents.length}</div>
+                            <div style={{ fontSize: '0.875rem', opacity: 0.9 }}>
+                                {filteredStudents.length === students.length ? 'Total Students' : `Filtered (of ${students.length} total)`}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <div className="toolbar">
                     <div className="search-box">
                         <span className="search-icon">🔍</span>
@@ -337,8 +362,10 @@ const Students = () => {
 
             {/* Bulk Upload Modal */}
             <Modal isOpen={bulkModalOpen} onClose={() => { setBulkModalOpen(false); setBulkResult(null); setBulkFile(null); }} title="Bulk Upload Students"
-                footer={!bulkResult && (<><button className="btn btn-secondary" onClick={() => setBulkModalOpen(false)}>Cancel</button>
-                    <button className="btn btn-primary" onClick={handleBulkUpload} disabled={!bulkFile}>Upload</button></>)}>
+                footer={!bulkResult && (<><button className="btn btn-secondary" onClick={() => setBulkModalOpen(false)} disabled={uploading}>Cancel</button>
+                    <button className="btn btn-primary" onClick={handleBulkUpload} disabled={!bulkFile || uploading}>
+                        {uploading ? <><span className="spinner" style={{ width: '16px', height: '16px', marginRight: '8px' }}></span>Uploading...</> : 'Upload'}
+                    </button></>)}>
                 {!bulkResult ? (
                     <>
                         <p style={{ marginBottom: '16px', color: 'var(--gray-600)' }}>

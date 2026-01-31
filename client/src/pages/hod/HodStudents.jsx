@@ -159,6 +159,37 @@ const HodStudents = () => {
     return (
         <div>
             <div className="card">
+                {/* Student Count Display */}
+                <div style={{
+                    padding: '16px 24px',
+                    background: 'linear-gradient(135deg, var(--primary-light) 0%, var(--primary) 100%)',
+                    borderRadius: '12px 12px 0 0',
+                    color: 'white',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between'
+                }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <span style={{ fontSize: '2rem' }}>👨‍🎓</span>
+                        <div>
+                            <div style={{ fontSize: '1.75rem', fontWeight: '700' }}>{students.length}</div>
+                            <div style={{ fontSize: '0.875rem', opacity: 0.9 }}>
+                                {(filters.year || filters.classId || filters.search) ? 'Filtered Students' : 'Total Students'}
+                            </div>
+                        </div>
+                    </div>
+                    {unassignedCount > 0 && (
+                        <div style={{
+                            background: 'rgba(255,255,255,0.2)',
+                            padding: '8px 16px',
+                            borderRadius: '20px',
+                            fontSize: '0.875rem'
+                        }}>
+                            ⚠️ {unassignedCount} unassigned
+                        </div>
+                    )}
+                </div>
+
                 <div className="card-header">
                     <h2 className="card-title">Student Management</h2>
                     <div className="header-actions" style={{ display: 'flex', gap: '8px' }}>
@@ -223,22 +254,7 @@ const HodStudents = () => {
                     </div>
                 </div>
 
-                {/* Stats Bar */}
-                {unassignedCount > 0 && (
-                    <div style={{
-                        padding: '12px 24px',
-                        background: 'rgba(245, 158, 11, 0.1)',
-                        borderBottom: '1px solid rgba(245, 158, 11, 0.2)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px'
-                    }}>
-                        <span style={{ fontSize: '1.2rem' }}>⚠️</span>
-                        <span style={{ color: 'var(--warning)', fontWeight: '500' }}>
-                            {unassignedCount} student{unassignedCount > 1 ? 's' : ''} not yet assigned to a class
-                        </span>
-                    </div>
-                )}
+
 
                 {loading ? (
                     <div className="loading"><div className="spinner"></div></div>
@@ -367,8 +383,14 @@ const HodStudents = () => {
                             className="btn btn-primary"
                             onClick={() => fileInputRef.current?.click()}
                             disabled={uploading}
+                            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
                         >
-                            {uploading ? 'Uploading...' : '📤 Select File & Upload'}
+                            {uploading ? (
+                                <>
+                                    <span className="spinner" style={{ width: '16px', height: '16px' }}></span>
+                                    Uploading...
+                                </>
+                            ) : '📤 Select File & Upload'}
                         </button>
                     </div>
 
