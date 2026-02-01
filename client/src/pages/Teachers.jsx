@@ -219,7 +219,7 @@ const Teachers = () => {
                             {departments.map((d) => <option key={d._id} value={d._id}>{d.name}</option>)}
                         </select>
                         <button className="btn btn-secondary" onClick={handleDownloadTemplate}>Template</button>
-                        <button className="btn btn-secondary" onClick={() => setBulkModalOpen(true)}>Bulk Upload</button>
+                        <button className="btn btn-secondary" onClick={() => setBulkModalOpen(true)}>Import</button>
                         <button className="btn btn-primary" onClick={openAddModal}>➕ Add Teacher</button>
                     </div>
                 </div>

@@ -25,7 +25,7 @@ const Classes = () => {
             const [classesRes, deptsRes, usersRes] = await Promise.all([
                 api.get('/classes'),
                 api.get('/departments'),
-                api.get('/users?role=teacher') // Fetch teachers to assign as coordinators
+                api.get('/users?role=classcoordinator') // Fetch class coordinators only
             ]);
             setClasses(classesRes.data);
             setDepartments(deptsRes.data);
