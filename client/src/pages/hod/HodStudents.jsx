@@ -36,7 +36,7 @@ const HodStudents = () => {
         try {
             setLoading(true);
             const params = new URLSearchParams();
-            if (filters.year) params.append('year', filters.year);
+            if (filters.year) params.append('year', Number(filters.year));
             if (filters.classId) params.append('classId', filters.classId);
             if (filters.search) params.append('search', filters.search);
 
