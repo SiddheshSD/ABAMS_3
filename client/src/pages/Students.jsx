@@ -9,6 +9,7 @@ const Students = () => {
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
     const [deptFilter, setDeptFilter] = useState('');
+    const [yearFilter, setYearFilter] = useState('');
     const [modalOpen, setModalOpen] = useState(false);
     const [bulkModalOpen, setBulkModalOpen] = useState(false);
     const [editingStudent, setEditingStudent] = useState(null);
@@ -46,7 +47,8 @@ const Students = () => {
         const matchesSearch = student.fullName?.toLowerCase().includes(search.toLowerCase()) ||
             student.username?.toLowerCase().includes(search.toLowerCase());
         const matchesDept = !deptFilter || student.departmentId?._id === deptFilter;
-        return matchesSearch && matchesDept;
+        const matchesYear = !yearFilter || student.year === parseInt(yearFilter);
+        return matchesSearch && matchesDept && matchesYear;
     });
 
     const handleSubmit = async (e) => {
@@ -190,6 +192,13 @@ const Students = () => {
                         <select value={deptFilter} onChange={(e) => setDeptFilter(e.target.value)}>
                             <option value="">All Departments</option>
                             {departments.map((d) => <option key={d._id} value={d._id}>{d.name}</option>)}
+                        </select>
+                        <select value={yearFilter} onChange={(e) => setYearFilter(e.target.value)}>
+                            <option value="">All Years</option>
+                            <option value="1">1st Year</option>
+                            <option value="2">2nd Year</option>
+                            <option value="3">3rd Year</option>
+                            <option value="4">4th Year</option>
                         </select>
                         <button className="btn btn-secondary" onClick={handleDownloadTemplate}>Template</button>
                         <button className="btn btn-secondary" onClick={() => setBulkModalOpen(true)}>Import</button>
