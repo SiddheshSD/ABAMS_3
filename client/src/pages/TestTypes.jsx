@@ -215,80 +215,84 @@ const TestTypes = () => {
             </div>
 
             {/* Modal */}
-            {showModal && (
-                <div className="modal-overlay" style={{
-                    position: 'fixed',
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    background: 'rgba(0,0,0,0.5)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    zIndex: 1000
-                }}>
-                    <div className="modal-content" style={{
-                        background: 'white',
-                        borderRadius: '12px',
-                        width: '90%',
-                        maxWidth: '500px',
-                        overflow: 'hidden'
+            {
+                showModal && (
+                    <div className="modal-overlay" style={{
+                        position: 'fixed',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        background: 'rgba(0,0,0,0.5)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        zIndex: 10000,
+                        opacity: 1,
+                        visibility: 'visible'
                     }}>
-                        <div style={{ padding: '20px', borderBottom: '1px solid var(--gray-200)' }}>
-                            <h3 style={{ margin: 0 }}>
-                                {editingType ? 'Edit Test Type' : 'Add Test Type'}
-                            </h3>
+                        <div className="modal-content" style={{
+                            background: 'white',
+                            borderRadius: '12px',
+                            width: '90%',
+                            maxWidth: '500px',
+                            overflow: 'hidden'
+                        }}>
+                            <div style={{ padding: '20px', borderBottom: '1px solid var(--gray-200)' }}>
+                                <h3 style={{ margin: 0 }}>
+                                    {editingType ? 'Edit Test Type' : 'Add Test Type'}
+                                </h3>
+                            </div>
+                            <form onSubmit={handleSubmit} style={{ padding: '24px' }}>
+                                <div className="form-group" style={{ marginBottom: '16px' }}>
+                                    <label className="form-label">Test Type Name *</label>
+                                    <input
+                                        type="text"
+                                        className="form-input"
+                                        value={formData.name}
+                                        onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                                        placeholder="e.g., UT 1, Semester, Practical"
+                                        required
+                                    />
+                                </div>
+                                <div className="form-group" style={{ marginBottom: '16px' }}>
+                                    <label className="form-label">Description</label>
+                                    <input
+                                        type="text"
+                                        className="form-input"
+                                        value={formData.description}
+                                        onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                                        placeholder="Optional description"
+                                    />
+                                </div>
+                                <div className="form-group" style={{ marginBottom: '24px' }}>
+                                    <label className="form-label">Default Max Score</label>
+                                    <input
+                                        type="number"
+                                        className="form-input"
+                                        value={formData.maxScore}
+                                        onChange={(e) => setFormData(prev => ({ ...prev, maxScore: parseInt(e.target.value) || 20 }))}
+                                        min="1"
+                                        placeholder="20"
+                                    />
+                                    <p style={{ margin: '4px 0 0', fontSize: '0.8rem', color: 'var(--gray-500)' }}>
+                                        Teachers can override this when creating tests
+                                    </p>
+                                </div>
+                                <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+                                    <button type="button" className="btn btn-ghost" onClick={handleCloseModal}>
+                                        Cancel
+                                    </button>
+                                    <button type="submit" className="btn btn-primary" disabled={saving}>
+                                        {saving ? 'Saving...' : (editingType ? 'Update' : 'Create')}
+                                    </button>
+                                </div>
+                            </form>
                         </div>
-                        <form onSubmit={handleSubmit} style={{ padding: '24px' }}>
-                            <div className="form-group" style={{ marginBottom: '16px' }}>
-                                <label className="form-label">Test Type Name *</label>
-                                <input
-                                    type="text"
-                                    className="form-input"
-                                    value={formData.name}
-                                    onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                                    placeholder="e.g., UT 1, Semester, Practical"
-                                    required
-                                />
-                            </div>
-                            <div className="form-group" style={{ marginBottom: '16px' }}>
-                                <label className="form-label">Description</label>
-                                <input
-                                    type="text"
-                                    className="form-input"
-                                    value={formData.description}
-                                    onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                                    placeholder="Optional description"
-                                />
-                            </div>
-                            <div className="form-group" style={{ marginBottom: '24px' }}>
-                                <label className="form-label">Default Max Score</label>
-                                <input
-                                    type="number"
-                                    className="form-input"
-                                    value={formData.maxScore}
-                                    onChange={(e) => setFormData(prev => ({ ...prev, maxScore: parseInt(e.target.value) || 20 }))}
-                                    min="1"
-                                    placeholder="20"
-                                />
-                                <p style={{ margin: '4px 0 0', fontSize: '0.8rem', color: 'var(--gray-500)' }}>
-                                    Teachers can override this when creating tests
-                                </p>
-                            </div>
-                            <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
-                                <button type="button" className="btn btn-ghost" onClick={handleCloseModal}>
-                                    Cancel
-                                </button>
-                                <button type="submit" className="btn btn-primary" disabled={saving}>
-                                    {saving ? 'Saving...' : (editingType ? 'Update' : 'Create')}
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            )}
-        </div>
+                    </div >
+                )
+            }
+        </div >
     );
 };
 

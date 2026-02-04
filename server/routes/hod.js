@@ -9,6 +9,7 @@ const Attendance = require('../models/Attendance');
 const LeaveRequest = require('../models/LeaveRequest');
 const Complaint = require('../models/Complaint');
 const { auth, roles } = require('../middleware/auth');
+const { reorganizeClass, getClassStudents, updateBatchNames } = require('../utils/classUtils');
 
 const upload = multer({ storage: multer.memoryStorage() });
 
@@ -272,10 +273,25 @@ router.put('/students/:id', async (req, res) => {
             return res.status(404).json({ message: 'Student not found' });
         }
 
+        // Store old class ID for potential reorganization
+        const oldClassId = student.classId;
+
         // Update student's class
         student.classId = classId;
         student.departmentId = departmentId;
         await student.save();
+
+        // Reorganize the new class (sort by last name, assign roll numbers, update batches)
+        try {
+            await reorganizeClass(classId);
+            // Also reorganize old class if student was moved from another class
+            if (oldClassId && oldClassId.toString() !== classId.toString()) {
+                await reorganizeClass(oldClassId);
+            }
+        } catch (reorgError) {
+            console.error('Class reorganization warning:', reorgError);
+            // Don't fail the request if reorganization has issues
+        }
 
         const updated = await User.findById(student._id)
             .select('-password')
@@ -288,6 +304,7 @@ router.put('/students/:id', async (req, res) => {
         res.status(500).json({ message: 'Server error' });
     }
 });
+
 
 // @route   POST /api/hod/students/bulk-assign
 // @desc    Bulk assign students to classes via Excel
@@ -311,6 +328,7 @@ router.post('/students/bulk-assign', upload.single('file'), async (req, res) => 
         });
 
         const results = { success: [], failed: [] };
+        const affectedClassIds = new Set(); // Track which classes need reorganization
 
         for (const row of data) {
             try {
@@ -347,10 +365,18 @@ router.post('/students/bulk-assign', upload.single('file'), async (req, res) => 
                     continue;
                 }
 
+                // Track old class for reorganization
+                if (student.classId) {
+                    affectedClassIds.add(student.classId.toString());
+                }
+
                 // Update student
                 student.classId = classId;
                 student.departmentId = departmentId;
                 await student.save();
+
+                // Track new class for reorganization
+                affectedClassIds.add(classId.toString());
 
                 results.success.push({
                     studentName: student.fullName,
@@ -359,6 +385,15 @@ router.post('/students/bulk-assign', upload.single('file'), async (req, res) => 
                 });
             } catch (err) {
                 results.failed.push({ row, error: err.message });
+            }
+        }
+
+        // Reorganize all affected classes after bulk assignment
+        for (const classId of affectedClassIds) {
+            try {
+                await reorganizeClass(classId);
+            } catch (reorgError) {
+                console.error(`Class reorganization warning for ${classId}:`, reorgError);
             }
         }
 
@@ -374,6 +409,7 @@ router.post('/students/bulk-assign', upload.single('file'), async (req, res) => 
         res.status(500).json({ message: 'Server error' });
     }
 });
+
 
 // ============================================
 // TEACHERS
@@ -466,11 +502,79 @@ router.get('/classes', async (req, res) => {
     }
 });
 
+// @route   GET /api/hod/classes/:id/students
+// @desc    Get all students in a class with batches
+router.get('/classes/:id/students', async (req, res) => {
+    try {
+        const departmentId = req.departmentId;
+
+        // Verify class belongs to department
+        const classDoc = await Class.findById(req.params.id);
+        if (!classDoc || classDoc.departmentId.toString() !== departmentId.toString()) {
+            return res.status(403).json({ message: 'Class not in your department' });
+        }
+
+        const result = await getClassStudents(req.params.id);
+        res.json(result);
+    } catch (error) {
+        console.error('HOD get class students error:', error);
+        res.status(500).json({ message: error.message || 'Server error' });
+    }
+});
+
+// @route   POST /api/hod/classes/:id/reorganize
+// @desc    Reorganize class - sort students, assign roll numbers, create batches
+router.post('/classes/:id/reorganize', async (req, res) => {
+    try {
+        const departmentId = req.departmentId;
+
+        // Verify class belongs to department
+        const classDoc = await Class.findById(req.params.id);
+        if (!classDoc || classDoc.departmentId.toString() !== departmentId.toString()) {
+            return res.status(403).json({ message: 'Class not in your department' });
+        }
+
+        await reorganizeClass(req.params.id);
+        const result = await getClassStudents(req.params.id);
+        res.json({
+            message: 'Class reorganized successfully',
+            ...result
+        });
+    } catch (error) {
+        console.error('HOD reorganize class error:', error);
+        res.status(500).json({ message: error.message || 'Server error' });
+    }
+});
+
+// @route   PUT /api/hod/classes/:id/batches
+// @desc    Update batch names
+router.put('/classes/:id/batches', async (req, res) => {
+    try {
+        const departmentId = req.departmentId;
+        const { batchUpdates } = req.body;
+
+        // Verify class belongs to department
+        const classDoc = await Class.findById(req.params.id);
+        if (!classDoc || classDoc.departmentId.toString() !== departmentId.toString()) {
+            return res.status(403).json({ message: 'Class not in your department' });
+        }
+
+        const updatedClass = await updateBatchNames(req.params.id, batchUpdates);
+        res.json({
+            message: 'Batch names updated successfully',
+            batches: updatedClass.batches
+        });
+    } catch (error) {
+        console.error('HOD update batch names error:', error);
+        res.status(500).json({ message: error.message || 'Server error' });
+    }
+});
+
 // @route   POST /api/hod/classes
 // @desc    Create class in HOD's department
 router.post('/classes', async (req, res) => {
     try {
-        const { name, year, coordinatorId } = req.body;
+        const { name, year, coordinatorId, maxCapacity } = req.body;
         const departmentId = req.departmentId;
 
         // If coordinator specified, verify they're in the department
@@ -481,11 +585,20 @@ router.post('/classes', async (req, res) => {
             }
         }
 
+        // Initialize default batches
+        const defaultBatches = [
+            { name: 'Batch 1', studentIds: [] },
+            { name: 'Batch 2', studentIds: [] },
+            { name: 'Batch 3', studentIds: [] }
+        ];
+
         const classItem = new Class({
             name,
             year,
             departmentId,
-            coordinatorId: coordinatorId || null
+            coordinatorId: coordinatorId || null,
+            maxCapacity: maxCapacity || 75,
+            batches: defaultBatches
         });
 
         await classItem.save();
@@ -494,7 +607,10 @@ router.post('/classes', async (req, res) => {
             .populate('departmentId')
             .populate('coordinatorId', 'fullName username');
 
-        res.status(201).json(populated);
+        res.status(201).json({
+            ...populated.toObject(),
+            studentCount: 0
+        });
     } catch (error) {
         console.error('HOD class create error:', error);
         res.status(500).json({ message: 'Server error' });
@@ -505,7 +621,7 @@ router.post('/classes', async (req, res) => {
 // @desc    Update class in HOD's department
 router.put('/classes/:id', async (req, res) => {
     try {
-        const { name, year, coordinatorId } = req.body;
+        const { name, year, coordinatorId, maxCapacity } = req.body;
         const departmentId = req.departmentId;
 
         // Verify class belongs to department
@@ -522,15 +638,34 @@ router.put('/classes/:id', async (req, res) => {
             }
         }
 
+        const updateData = {
+            name,
+            year,
+            coordinatorId: coordinatorId || null
+        };
+
+        if (maxCapacity !== undefined) {
+            updateData.maxCapacity = maxCapacity;
+        }
+
         const classItem = await Class.findByIdAndUpdate(
             req.params.id,
-            { name, year, coordinatorId: coordinatorId || null },
+            updateData,
             { new: true }
         )
             .populate('departmentId')
             .populate('coordinatorId', 'fullName username');
 
-        res.json(classItem);
+        // Add student count
+        const studentCount = await User.countDocuments({
+            role: 'student',
+            classId: req.params.id
+        });
+
+        res.json({
+            ...classItem.toObject(),
+            studentCount
+        });
     } catch (error) {
         console.error('HOD class update error:', error);
         res.status(500).json({ message: 'Server error' });

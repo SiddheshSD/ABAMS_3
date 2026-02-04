@@ -220,7 +220,7 @@ const Teachers = () => {
                         </select>
                         <button className="btn btn-secondary" onClick={handleDownloadTemplate}>Template</button>
                         <button className="btn btn-secondary" onClick={() => setBulkModalOpen(true)}>Import</button>
-                        <button className="btn btn-primary" onClick={openAddModal}>➕ Add Teacher</button>
+                        <button className="btn btn-primary" onClick={openAddModal}>Add Teacher</button>
                     </div>
                 </div>
 

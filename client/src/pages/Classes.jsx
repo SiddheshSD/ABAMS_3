@@ -13,8 +13,17 @@ const Classes = () => {
         name: '',
         year: 1,
         departmentId: '',
-        coordinatorId: ''
+        coordinatorId: '',
+        maxCapacity: 75
     });
+
+    // View Students Modal State
+    const [studentsModalOpen, setStudentsModalOpen] = useState(false);
+    const [selectedClass, setSelectedClass] = useState(null);
+    const [classStudents, setClassStudents] = useState(null);
+    const [loadingStudents, setLoadingStudents] = useState(false);
+    const [activeBatchTab, setActiveBatchTab] = useState(0);
+    const [searchQuery, setSearchQuery] = useState('');
 
     useEffect(() => {
         fetchData();
@@ -25,7 +34,7 @@ const Classes = () => {
             const [classesRes, deptsRes, usersRes] = await Promise.all([
                 api.get('/classes'),
                 api.get('/departments'),
-                api.get('/users?role=classcoordinator') // Fetch class coordinators only
+                api.get('/users?role=classcoordinator')
             ]);
             setClasses(classesRes.data);
             setDepartments(deptsRes.data);
@@ -58,7 +67,8 @@ const Classes = () => {
             name: cls.name,
             year: cls.year,
             departmentId: cls.departmentId?._id || '',
-            coordinatorId: cls.coordinatorId?._id || ''
+            coordinatorId: cls.coordinatorId?._id || '',
+            maxCapacity: cls.maxCapacity || 75
         });
         setModalOpen(true);
     };
@@ -75,13 +85,65 @@ const Classes = () => {
 
     const openAddModal = () => {
         setEditingClass(null);
-        setFormData({ name: '', year: 1, departmentId: '', coordinatorId: '' });
+        setFormData({ name: '', year: 1, departmentId: '', coordinatorId: '', maxCapacity: 75 });
         setModalOpen(true);
     };
 
     const closeModal = () => {
         setModalOpen(false);
         setEditingClass(null);
+    };
+
+    const handleViewStudents = async (cls) => {
+        setSelectedClass(cls);
+        setStudentsModalOpen(true);
+        setLoadingStudents(true);
+        setActiveBatchTab(0);
+        try {
+            const response = await api.get(`/classes/${cls._id}/students`);
+            setClassStudents(response.data);
+        } catch (error) {
+            console.error('Failed to fetch students:', error);
+            alert('Failed to load students');
+        } finally {
+            setLoadingStudents(false);
+        }
+    };
+
+    const handleReorganizeClass = async () => {
+        if (!selectedClass) return;
+        if (!confirm('This will sort students by last name, assign roll numbers, and reorganize batches. Continue?')) return;
+
+        setLoadingStudents(true);
+        try {
+            const response = await api.post(`/classes/${selectedClass._id}/reorganize`);
+            setClassStudents(response.data);
+            alert('Class reorganized successfully!');
+            fetchData(); // Refresh the main list
+        } catch (error) {
+            console.error('Failed to reorganize class:', error);
+            alert(error.response?.data?.message || 'Failed to reorganize class');
+        } finally {
+            setLoadingStudents(false);
+        }
+    };
+
+    const closeStudentsModal = () => {
+        setStudentsModalOpen(false);
+        setSelectedClass(null);
+        setClassStudents(null);
+        setSearchQuery('');
+    };
+
+    const filterStudents = (students) => {
+        if (!searchQuery.trim()) return students;
+        const query = searchQuery.toLowerCase();
+        return students.filter(student =>
+            student.fullName?.toLowerCase().includes(query) ||
+            student.username?.toLowerCase().includes(query) ||
+            student.email?.toLowerCase().includes(query) ||
+            student.rollNo?.toString().toLowerCase().includes(query)
+        );
     };
 
     if (loading) {
@@ -106,6 +168,8 @@ const Classes = () => {
                                 <th>Year</th>
                                 <th>Department</th>
                                 <th>Coordinator</th>
+                                <th>Students</th>
+                                <th>Capacity</th>
                                 <th>Actions</th>
                             </tr>
                         </thead>
@@ -117,7 +181,24 @@ const Classes = () => {
                                     <td>{cls.departmentId?.name || '-'}</td>
                                     <td>{cls.coordinatorId?.fullName || '-'}</td>
                                     <td>
+                                        <span className={`badge ${cls.studentCount > 0 ? 'badge-success' : 'badge-secondary'}`}>
+                                            {cls.studentCount || 0} students
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <span className="badge badge-info">
+                                            Max: {cls.maxCapacity || 75}
+                                        </span>
+                                    </td>
+                                    <td>
                                         <div className="actions-cell">
+                                            <button
+                                                className="btn btn-sm btn-secondary"
+                                                onClick={() => handleViewStudents(cls)}
+                                                title="View Students"
+                                            >
+                                                👥 View Students
+                                            </button>
                                             <button className="btn-icon" onClick={() => handleEdit(cls)} title="Edit">✏️</button>
                                             <button className="btn-icon" onClick={() => handleDelete(cls._id)} title="Delete">🗑️</button>
                                         </div>
@@ -136,6 +217,7 @@ const Classes = () => {
                 </div>
             </div>
 
+            {/* Add/Edit Class Modal */}
             <Modal
                 isOpen={modalOpen}
                 onClose={closeModal}
@@ -187,29 +269,176 @@ const Classes = () => {
                             </select>
                         </div>
                     </div>
-                    <div className="form-group">
-                        <label className="form-label">Class Coordinator</label>
-                        <select
-                            value={formData.coordinatorId}
-                            onChange={(e) => setFormData({ ...formData, coordinatorId: e.target.value })}
-                        >
-                            <option value="">Select Coordinator</option>
-                            {coordinators.map((coordinator) => (
-                                <option key={coordinator._id} value={coordinator._id}>
-                                    {coordinator.fullName || `${coordinator.firstName} ${coordinator.lastName}`}
-                                </option>
-                            ))}
-                        </select>
-                        {coordinators.length === 0 && (
-                            <p style={{ fontSize: '12px', color: 'var(--warning)', marginTop: '4px' }}>
-                                ⚠️ No teachers found. Add users with "Teacher" role first.
-                            </p>
-                        )}
+                    <div className="form-row">
+                        <div className="form-group">
+                            <label className="form-label">Max Capacity *</label>
+                            <input
+                                type="number"
+                                value={formData.maxCapacity}
+                                onChange={(e) => setFormData({ ...formData, maxCapacity: parseInt(e.target.value) })}
+                                min={15}
+                                max={75}
+                                required
+                            />
+                            <small style={{ color: 'var(--text-muted)', fontSize: '12px' }}>
+                                Min: 15, Max: 75 (allows up to 3 batches of 25 students)
+                            </small>
+                        </div>
+                        <div className="form-group">
+                            <label className="form-label">Class Coordinator</label>
+                            <select
+                                value={formData.coordinatorId}
+                                onChange={(e) => setFormData({ ...formData, coordinatorId: e.target.value })}
+                            >
+                                <option value="">Select Coordinator</option>
+                                {coordinators.map((coordinator) => (
+                                    <option key={coordinator._id} value={coordinator._id}>
+                                        {coordinator.fullName || `${coordinator.firstName} ${coordinator.lastName}`}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
                     </div>
                 </form>
+            </Modal>
+
+            {/* View Students Modal */}
+            <Modal
+                isOpen={studentsModalOpen}
+                onClose={closeStudentsModal}
+                title={`Students in ${selectedClass?.name || 'Class'}`}
+                size="extra-large"
+            >
+                {loadingStudents ? (
+                    <div className="loading"><div className="spinner"></div></div>
+                ) : classStudents ? (
+                    <div>
+                        {/* Search Bar */}
+                        <div style={{ marginBottom: '20px' }}>
+                            <div className="search-box" style={{ maxWidth: '100%' }}>
+                                <span className="search-icon">🔍</span>
+                                <input
+                                    type="text"
+                                    placeholder="Search students by name, username, email, or roll number..."
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    style={{ paddingLeft: '40px' }}
+                                />
+                            </div>
+                        </div>
+
+                        {/* Class Summary */}
+                        <div style={{
+                            display: 'flex',
+                            gap: '16px',
+                            marginBottom: '20px',
+                            padding: '16px',
+                            background: 'var(--bg-secondary)',
+                            borderRadius: '8px'
+                        }}>
+                            <div>
+                                <strong>Total Students:</strong> {classStudents.class.totalStudents}
+                            </div>
+                            <div>
+                                <strong>Max Capacity:</strong> {classStudents.class.maxCapacity}
+                            </div>
+                            <div>
+                                <strong>Batches:</strong> {classStudents.batches.length}
+                            </div>
+                            <button
+                                className="btn btn-primary btn-sm"
+                                onClick={handleReorganizeClass}
+                                style={{ marginLeft: 'auto' }}
+                            >
+                                🔄 Reorganize Class
+                            </button>
+                        </div>
+
+                        {/* Batch Tabs */}
+                        {classStudents.batches.length > 0 && (
+                            <div style={{ marginBottom: '16px' }}>
+                                <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
+                                    <button
+                                        className={`btn ${activeBatchTab === -1 ? 'btn-primary' : 'btn-secondary'} btn-sm`}
+                                        onClick={() => setActiveBatchTab(-1)}
+                                    >
+                                        All Students ({classStudents.allStudents.length})
+                                    </button>
+                                    {classStudents.batches.map((batch, index) => (
+                                        <button
+                                            key={batch._id}
+                                            className={`btn ${activeBatchTab === index ? 'btn-primary' : 'btn-secondary'} btn-sm`}
+                                            onClick={() => setActiveBatchTab(index)}
+                                        >
+                                            {batch.name} ({batch.studentCount})
+                                        </button>
+                                    ))}
+                                </div>
+
+                                {/* Students Table */}
+                                <div className="table-container" style={{ maxHeight: '500px', overflowY: 'auto' }}>
+                                    <table className="table">
+                                        <thead>
+                                            <tr>
+                                                <th>Roll No</th>
+                                                <th>Name</th>
+                                                <th>Username</th>
+                                                <th>Email</th>
+                                                <th>Phone</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {filterStudents(activeBatchTab === -1
+                                                ? classStudents.allStudents
+                                                : classStudents.batches[activeBatchTab]?.students || []
+                                            ).map((student) => (
+                                                <tr key={student._id}>
+                                                    <td>
+                                                        <span className="badge badge-primary">
+                                                            {student.rollNo || '-'}
+                                                        </span>
+                                                    </td>
+                                                    <td><strong>{student.fullName}</strong></td>
+                                                    <td>{student.username}</td>
+                                                    <td>{student.email || '-'}</td>
+                                                    <td>{student.phone || '-'}</td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                    {filterStudents(activeBatchTab === -1
+                                        ? classStudents.allStudents
+                                        : classStudents.batches[activeBatchTab]?.students || []
+                                    ).length === 0 && (
+                                            <div className="empty-state">
+                                                <div className="empty-icon">👤</div>
+                                                <h3>No students found</h3>
+                                                <p>{searchQuery ? 'No students match your search criteria' : `No students assigned to this ${activeBatchTab === -1 ? 'class' : 'batch'} yet`}</p>
+                                            </div>
+                                        )}
+                                </div>
+                            </div>
+                        )}
+
+                        {classStudents.batches.length === 0 && classStudents.allStudents.length === 0 && (
+                            <div className="empty-state">
+                                <div className="empty-icon">👤</div>
+                                <h3>No students</h3>
+                                <p>No students assigned to this class yet</p>
+                            </div>
+                        )}
+                    </div>
+                ) : (
+                    <div className="empty-state">
+                        <div className="empty-icon">❌</div>
+                        <h3>Failed to load</h3>
+                        <p>Could not load student data</p>
+                    </div>
+                )}
             </Modal>
         </div>
     );
 };
 
 export default Classes;
+

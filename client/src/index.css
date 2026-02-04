@@ -572,6 +572,16 @@ textarea:focus {
   color: var(--danger);
 }
 
+.badge-info {
+  background: rgba(14, 165, 233, 0.1);
+  color: #0ea5e9;
+}
+
+.badge-secondary {
+  background: var(--gray-100);
+  color: var(--gray-600);
+}
+
 /* Forms */
 .form-group {
   margin-bottom: 20px;
@@ -659,6 +669,19 @@ textarea:focus {
   gap: 12px;
   padding: 16px 24px;
   border-top: 1px solid var(--gray-200);
+}
+
+/* Large Modal */
+.modal.modal-large {
+  max-width: 900px;
+  width: 95%;
+}
+
+/* Extra Large Modal - Almost Full Screen */
+.modal.modal-extra-large {
+  max-width: 1400px;
+  width: 95%;
+  max-height: 95vh;
 }
 
 /* Search & Filters */

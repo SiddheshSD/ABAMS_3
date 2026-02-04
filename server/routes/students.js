@@ -169,11 +169,16 @@ router.post('/', auth, adminOnly, async (req, res) => {
 router.put('/:id', auth, adminOnly, async (req, res) => {
     try {
         const { firstName, fatherName, lastName, motherName, phone, email, parentPhone, parentEmail, departmentId, classId, year, gender } = req.body;
+        const { reorganizeClass } = require('../utils/classUtils');
 
         const student = await User.findById(req.params.id);
         if (!student || !student.roles.includes('student')) {
             return res.status(404).json({ message: 'Student not found' });
         }
+
+        // Store old class ID for potential reorganization
+        const oldClassId = student.classId;
+        const classChanged = classId && (!oldClassId || oldClassId.toString() !== classId.toString());
 
         // Update student fields
         if (firstName) student.firstName = firstName;
@@ -191,12 +196,25 @@ router.put('/:id', auth, adminOnly, async (req, res) => {
 
         await student.save();
 
+        // Reorganize classes if class assignment changed
+        if (classChanged) {
+            try {
+                await reorganizeClass(classId);
+                if (oldClassId) {
+                    await reorganizeClass(oldClassId);
+                }
+            } catch (reorgError) {
+                console.error('Class reorganization warning:', reorgError);
+            }
+        }
+
         res.json(student);
     } catch (error) {
         console.error('Student update error:', error);
         res.status(500).json({ message: 'Server error' });
     }
 });
+
 
 // @route   DELETE /api/students/:id
 // @desc    Delete student and their parent
