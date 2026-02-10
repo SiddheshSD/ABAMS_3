@@ -25,6 +25,7 @@ const Layout = () => {
             '/lectures': 'Lectures',
             '/subjects': 'Subjects',
             '/test-types': 'Test Types',
+            '/academic-settings': 'Academic Settings',
             '/profile': 'Profile',
             // HOD titles
             '/hod/dashboard': 'HOD Dashboard',

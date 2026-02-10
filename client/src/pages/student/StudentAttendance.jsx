@@ -146,6 +146,19 @@ const StudentAttendance = () => {
                                         </span>
                                     </div>
                                 </div>
+                                {subject.eligible === false && (
+                                    <div style={{
+                                        padding: '6px 10px',
+                                        borderRadius: '6px',
+                                        fontSize: '12px',
+                                        fontWeight: '500',
+                                        background: 'rgba(239,68,68,0.1)',
+                                        color: 'var(--danger)',
+                                        margin: '8px 0 0'
+                                    }}>
+                                        ⚠️ Ineligible — Need {subject.classesNeeded || '?'} more classes
+                                    </div>
+                                )}
                                 <div className="stat-card-footer">
                                     <span className="view-details">Click to view details →</span>
                                 </div>

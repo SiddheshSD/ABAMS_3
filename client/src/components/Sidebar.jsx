@@ -22,6 +22,7 @@ const Sidebar = ({ collapsed, mobileOpen, onMobileClose }) => {
         { path: '/timetable', icon: <FiCalendar />, label: 'Timetable' },
         { path: '/rooms', icon: <FiMapPin />, label: 'Classrooms' },
         { path: '/timeslots', icon: <FiClock />, label: 'Time Slots' },
+        { path: '/academic-settings', icon: <FiSettings />, label: 'Academic Settings' },
         { path: '/profile', icon: <FiSettings />, label: 'Profile' },
     ];
 

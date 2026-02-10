@@ -131,6 +131,55 @@ const CCDashboard = () => {
                 </div>
             </div>
 
+            {/* At-Risk Students */}
+            {stats?.atRiskStudents && stats.atRiskStudents.length > 0 && (
+                <div className="card" style={{ marginBottom: '24px' }}>
+                    <div className="card-header">
+                        <h2 className="card-title">⚠️ At-Risk Students</h2>
+                        <span className="badge" style={{ background: 'rgba(239,68,68,0.1)', color: 'var(--danger)' }}>
+                            {stats.atRiskStudents.length} student{stats.atRiskStudents.length !== 1 ? 's' : ''}
+                        </span>
+                    </div>
+                    <div className="table-container">
+                        <table className="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Roll No</th>
+                                    <th>Name</th>
+                                    <th>Subject</th>
+                                    <th style={{ textAlign: 'center' }}>Attendance %</th>
+                                    <th style={{ textAlign: 'center' }}>Classes Needed</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {stats.atRiskStudents.map((s, i) => (
+                                    <tr key={i}>
+                                        <td>{s.username || '—'}</td>
+                                        <td>{s.fullName}</td>
+                                        <td>{s.subject}</td>
+                                        <td style={{ textAlign: 'center' }}>
+                                            <span style={{
+                                                padding: '3px 10px',
+                                                borderRadius: '10px',
+                                                fontSize: '12px',
+                                                fontWeight: '500',
+                                                background: 'rgba(239,68,68,0.1)',
+                                                color: 'var(--danger)'
+                                            }}>
+                                                {s.attendancePercent?.toFixed(0)}%
+                                            </span>
+                                        </td>
+                                        <td style={{ textAlign: 'center', fontWeight: '500' }}>
+                                            {s.classesNeeded || '—'}
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            )}
+
             {/* Quick Actions & Alerts */}
             <div className="dashboard-grid">
                 <div className="card">

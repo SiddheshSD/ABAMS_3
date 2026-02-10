@@ -7,6 +7,9 @@ const StudentTestScores = () => {
     const [selectedTestType, setSelectedTestType] = useState('');
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
+    const [iaSummary, setIaSummary] = useState(null);
+    const [iaLoading, setIaLoading] = useState(false);
+    const [showIa, setShowIa] = useState(false);
 
     useEffect(() => {
         fetchTestScores();
@@ -39,6 +42,29 @@ const StudentTestScores = () => {
             setError('Failed to connect to server');
         } finally {
             setLoading(false);
+        }
+    };
+
+    const fetchIaSummary = async () => {
+        if (iaSummary) {
+            setShowIa(!showIa);
+            return;
+        }
+        setIaLoading(true);
+        try {
+            const token = localStorage.getItem('token');
+            const response = await fetch('http://localhost:5000/api/student/ia-summary', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const data = await response.json();
+            if (response.ok) {
+                setIaSummary(data);
+                setShowIa(true);
+            }
+        } catch (err) {
+            console.error('Failed to fetch IA summary:', err);
+        } finally {
+            setIaLoading(false);
         }
     };
 
@@ -76,9 +102,86 @@ const StudentTestScores = () => {
 
     return (
         <div className="page-container">
-            <div className="page-header">
+            <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <h2>Test Scores</h2>
+                <button
+                    className={`btn ${showIa ? 'btn-outline' : 'btn-primary'}`}
+                    onClick={fetchIaSummary}
+                    disabled={iaLoading}
+                    style={{ fontSize: '14px' }}
+                >
+                    {iaLoading ? 'Loading...' : showIa ? 'Hide IA Summary' : '📊 View IA Summary'}
+                </button>
             </div>
+
+            {/* IA Summary Section */}
+            {showIa && iaSummary && (
+                <div className="card" style={{ marginBottom: '24px' }}>
+                    <div className="card-header">
+                        <h3 className="card-title" style={{ margin: 0 }}>📊 Internal Assessment Breakdown</h3>
+                    </div>
+                    <div className="table-container">
+                        <table className="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Subject</th>
+                                    <th style={{ textAlign: 'center' }}>UT IA</th>
+                                    <th style={{ textAlign: 'center' }}>Assignment IA</th>
+                                    <th style={{ textAlign: 'center' }}>Attendance IA</th>
+                                    <th style={{ textAlign: 'center' }}>Total IA</th>
+                                    <th style={{ textAlign: 'center' }}>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {iaSummary.subjects?.map((ia, index) => {
+                                    const iaTotal = iaSummary.settings?.iaTotal || 20;
+                                    const pct = (ia.totalIA / iaTotal) * 100;
+                                    return (
+                                        <tr key={index}>
+                                            <td style={{ fontWeight: '500' }}>{ia.subject}</td>
+                                            <td style={{ textAlign: 'center' }}>{ia.utIA?.toFixed(1) ?? '—'}</td>
+                                            <td style={{ textAlign: 'center' }}>{ia.assignmentIA?.toFixed(1) ?? '—'}</td>
+                                            <td style={{ textAlign: 'center' }}>{ia.attendanceIA?.toFixed(1) ?? '—'}</td>
+                                            <td style={{ textAlign: 'center' }}>
+                                                <span style={{
+                                                    padding: '4px 12px',
+                                                    borderRadius: '12px',
+                                                    fontWeight: '600',
+                                                    fontSize: '13px',
+                                                    background: pct >= 60
+                                                        ? 'rgba(16,185,129,0.1)'
+                                                        : pct >= 40
+                                                            ? 'rgba(245,158,11,0.1)'
+                                                            : 'rgba(239,68,68,0.1)',
+                                                    color: pct >= 60
+                                                        ? 'var(--success)'
+                                                        : pct >= 40
+                                                            ? 'var(--warning)'
+                                                            : 'var(--danger)'
+                                                }}>
+                                                    {ia.totalIA?.toFixed(1)} / {iaTotal}
+                                                </span>
+                                            </td>
+                                            <td style={{ textAlign: 'center' }}>
+                                                <span style={{
+                                                    padding: '3px 10px',
+                                                    borderRadius: '10px',
+                                                    fontSize: '12px',
+                                                    fontWeight: '500',
+                                                    background: ia.eligible !== false ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)',
+                                                    color: ia.eligible !== false ? 'var(--success)' : 'var(--danger)'
+                                                }}>
+                                                    {ia.eligible !== false ? '✓ Eligible' : '✗ Ineligible'}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            )}
 
             {/* Filters */}
             <div className="filters-bar">
@@ -177,3 +280,4 @@ const StudentTestScores = () => {
 };
 
 export default StudentTestScores;
+

@@ -6,8 +6,11 @@ const User = require('../models/User');
 const Class = require('../models/Class');
 const Timetable = require('../models/Timetable');
 const Attendance = require('../models/Attendance');
+const Test = require('../models/Test');
 const LeaveRequest = require('../models/LeaveRequest');
 const Complaint = require('../models/Complaint');
+const AcademicSettings = require('../models/AcademicSettings');
+const academicCalc = require('../utils/academicCalc');
 const { auth, roles } = require('../middleware/auth');
 const { reorganizeClass, getClassStudents, updateBatchNames } = require('../utils/classUtils');
 
@@ -104,13 +107,66 @@ router.get('/stats', async (req, res) => {
             }
         });
 
+        // Get at-risk students per year
+        const settings = await AcademicSettings.getSettings();
+        const atRiskByYear = {};
+
+        for (let year = 1; year <= 4; year++) {
+            const yearClasses = classes.filter(c => c.year === year);
+            const classIds = yearClasses.map(c => c._id);
+            if (classIds.length === 0) {
+                atRiskByYear[year] = { count: 0, students: [] };
+                continue;
+            }
+
+            const yearStudents = await User.find({ role: 'student', classId: { $in: classIds } })
+                .select('fullName username classId');
+            const yearAttendance = await Attendance.find({ classId: { $in: classIds } });
+
+            const riskStudents = [];
+            const seenStudents = new Set();
+
+            for (const student of yearStudents) {
+                const sid = student._id.toString();
+                const studentClassId = student.classId;
+                const subjects = await Timetable.find({ classId: studentClassId }).distinct('subject');
+
+                for (const subj of subjects) {
+                    const subjRecords = yearAttendance.filter(r =>
+                        r.classId.toString() === studentClassId.toString() && r.subject === subj
+                    );
+                    let total = 0, attended = 0;
+                    for (const record of subjRecords) {
+                        const sr = record.records.find(r => r.studentId.toString() === sid);
+                        if (sr) { total++; if (sr.status === 'present') attended++; }
+                    }
+                    if (total > 0) {
+                        const attPercent = academicCalc.calcAttendancePercent(attended, total);
+                        if (attPercent < settings.minAttendancePercent && !seenStudents.has(sid)) {
+                            seenStudents.add(sid);
+                            riskStudents.push({
+                                studentId: student._id,
+                                fullName: student.fullName,
+                                username: student.username,
+                                lowestAttendance: attPercent,
+                                subject: subj
+                            });
+                        }
+                    }
+                }
+            }
+
+            atRiskByYear[year] = { count: riskStudents.length, students: riskStudents.slice(0, 20) };
+        }
+
         res.json({
             yearStats,
             totalTeachers,
             totalStudents,
             totalClasses: classes.length,
             pendingLeaves,
-            openComplaints
+            openComplaints,
+            atRiskByYear
         });
     } catch (error) {
         console.error('HOD stats error:', error);
@@ -680,7 +736,7 @@ router.put('/classes/:id', async (req, res) => {
 // @desc    Get timetables for HOD's department classes
 router.get('/timetables', async (req, res) => {
     try {
-        const { classId, day } = req.query;
+        const { classId, day, batchId } = req.query;
         const departmentId = req.departmentId;
 
         // Get department classes
@@ -696,17 +752,41 @@ router.get('/timetables', async (req, res) => {
             filter.classId = classId;
         }
         if (day) filter.day = day;
+        if (batchId) filter.batchId = batchId;
 
         const timetables = await Timetable.find(filter)
             .populate('classId')
             .populate('teacherId', 'fullName username')
             .populate('timeSlotId')
+            .populate('timeSlotIds')
             .populate('roomId')
             .sort({ day: 1 });
 
         res.json(timetables);
     } catch (error) {
         console.error('HOD timetable error:', error);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// @route   GET /api/hod/timetables/class-batches/:classId
+// @desc    Get batches for a specific class
+router.get('/timetables/class-batches/:classId', async (req, res) => {
+    try {
+        const departmentId = req.departmentId;
+        const classData = await Class.findById(req.params.classId).select('batches name departmentId');
+
+        if (!classData) {
+            return res.status(404).json({ message: 'Class not found' });
+        }
+
+        if (classData.departmentId.toString() !== departmentId.toString()) {
+            return res.status(403).json({ message: 'Class not in your department' });
+        }
+
+        res.json({ batches: classData.batches || [], className: classData.name });
+    } catch (error) {
+        console.error('HOD fetch batches error:', error);
         res.status(500).json({ message: 'Server error' });
     }
 });
@@ -728,6 +808,7 @@ router.get('/timetables/other-departments', async (req, res) => {
             })
             .populate('teacherId', 'fullName username')
             .populate('timeSlotId')
+            .populate('timeSlotIds')
             .populate('roomId')
             .sort({ day: 1 });
 
@@ -742,7 +823,7 @@ router.get('/timetables/other-departments', async (req, res) => {
 // @desc    Create timetable entry for HOD's department
 router.post('/timetables', async (req, res) => {
     try {
-        const { classId, subject, teacherId, day, timeSlotId, roomId, type, lectureId } = req.body;
+        const { classId, subject, teacherId, day, timeSlotId, timeSlotIds, roomId, type, lectureId, batchId } = req.body;
         const departmentId = req.departmentId;
 
         // Verify class is in department
@@ -751,20 +832,79 @@ router.post('/timetables', async (req, res) => {
             return res.status(403).json({ message: 'Can only create timetable for your department classes' });
         }
 
-        // Check for room conflict
-        const roomConflict = await Timetable.findOne({ day, timeSlotId, roomId });
-        if (roomConflict) {
-            return res.status(400).json({ message: 'Room is already booked for this time slot' });
+        const slotsToCheck = timeSlotIds && timeSlotIds.length > 0 ? timeSlotIds : [timeSlotId];
+
+        // Check for room conflict (skip for blank entries with no room)
+        if (roomId) {
+            for (const slotId of slotsToCheck) {
+                const roomConflict = await Timetable.findOne({
+                    day,
+                    $or: [
+                        { timeSlotId: slotId },
+                        { timeSlotIds: slotId }
+                    ],
+                    roomId
+                });
+                if (roomConflict) {
+                    return res.status(400).json({ message: 'Room is already booked for this time slot' });
+                }
+            }
         }
 
-        // Check for teacher conflict
-        const teacherConflict = await Timetable.findOne({ day, timeSlotId, teacherId });
-        if (teacherConflict) {
-            return res.status(400).json({ message: 'Teacher is already assigned for this time slot' });
+        // Check for teacher conflict (skip for blank entries with no teacher)
+        if (teacherId) {
+            for (const slotId of slotsToCheck) {
+                const teacherConflict = await Timetable.findOne({
+                    day,
+                    $or: [
+                        { timeSlotId: slotId },
+                        { timeSlotIds: slotId }
+                    ],
+                    teacherId
+                });
+                if (teacherConflict) {
+                    return res.status(400).json({ message: 'Teacher is already assigned for this time slot' });
+                }
+            }
+        }
+
+        // Check for class-batch conflict
+        for (const slotId of slotsToCheck) {
+            const existingEntries = await Timetable.find({
+                day,
+                classId,
+                $or: [
+                    { timeSlotId: slotId },
+                    { timeSlotIds: slotId }
+                ]
+            });
+
+            for (const existing of existingEntries) {
+                // If existing entry is for entire class, no more entries allowed
+                if (!existing.batchId) {
+                    return res.status(400).json({ message: 'This time slot already has an entry for the entire class' });
+                }
+                // If new entry is for entire class but slot has batch entries, block it
+                if (!batchId) {
+                    return res.status(400).json({ message: 'Cannot assign entire class - this slot already has batch-specific entries' });
+                }
+                // If same batch is already assigned, block it
+                if (existing.batchId?.toString() === batchId) {
+                    return res.status(400).json({ message: 'This batch is already assigned to this time slot' });
+                }
+            }
         }
 
         const timetable = new Timetable({
-            classId, subject, teacherId, day, timeSlotId, roomId, type,
+            classId,
+            subject,
+            teacherId,
+            day,
+            timeSlotId: timeSlotIds && timeSlotIds.length > 0 ? timeSlotIds[0] : timeSlotId,
+            timeSlotIds: timeSlotIds && timeSlotIds.length > 1 ? timeSlotIds : [],
+            roomId,
+            type,
+            batchId: batchId || null,
             lectureId: lectureId || undefined
         });
 
@@ -774,12 +914,13 @@ router.post('/timetables', async (req, res) => {
             .populate('classId')
             .populate('teacherId', 'fullName username')
             .populate('timeSlotId')
+            .populate('timeSlotIds')
             .populate('roomId');
 
         res.status(201).json(populated);
     } catch (error) {
         console.error('HOD timetable create error:', error);
-        res.status(500).json({ message: 'Server error' });
+        res.status(500).json({ message: error.message || 'Server error' });
     }
 });
 
@@ -787,7 +928,7 @@ router.post('/timetables', async (req, res) => {
 // @desc    Update timetable entry
 router.put('/timetables/:id', async (req, res) => {
     try {
-        const { classId, subject, teacherId, day, timeSlotId, roomId, type, lectureId } = req.body;
+        const { classId, subject, teacherId, day, timeSlotId, timeSlotIds, roomId, type, lectureId, batchId } = req.body;
         const departmentId = req.departmentId;
         const timetableId = req.params.id;
 
@@ -803,32 +944,60 @@ router.put('/timetables/:id', async (req, res) => {
             return res.status(403).json({ message: 'Can only assign to your department classes' });
         }
 
+        const slotsToCheck = timeSlotIds && timeSlotIds.length > 0 ? timeSlotIds : [timeSlotId];
+
         // Check for room conflict (excluding current entry)
-        const roomConflict = await Timetable.findOne({
-            day, timeSlotId, roomId,
-            _id: { $ne: timetableId }
-        });
-        if (roomConflict) {
-            return res.status(400).json({ message: 'Room is already booked for this time slot' });
+        for (const slotId of slotsToCheck) {
+            const roomConflict = await Timetable.findOne({
+                day,
+                $or: [
+                    { timeSlotId: slotId },
+                    { timeSlotIds: slotId }
+                ],
+                roomId,
+                _id: { $ne: timetableId }
+            });
+            if (roomConflict) {
+                return res.status(400).json({ message: 'Room is already booked for this time slot' });
+            }
         }
 
         // Check for teacher conflict (excluding current entry)
-        const teacherConflict = await Timetable.findOne({
-            day, timeSlotId, teacherId,
-            _id: { $ne: timetableId }
-        });
-        if (teacherConflict) {
-            return res.status(400).json({ message: 'Teacher is already assigned for this time slot' });
+        for (const slotId of slotsToCheck) {
+            const teacherConflict = await Timetable.findOne({
+                day,
+                $or: [
+                    { timeSlotId: slotId },
+                    { timeSlotIds: slotId }
+                ],
+                teacherId,
+                _id: { $ne: timetableId }
+            });
+            if (teacherConflict) {
+                return res.status(400).json({ message: 'Teacher is already assigned for this time slot' });
+            }
         }
 
         const timetable = await Timetable.findByIdAndUpdate(
             timetableId,
-            { classId, subject, teacherId, day, timeSlotId, roomId, type, lectureId: lectureId || undefined },
+            {
+                classId,
+                subject,
+                teacherId,
+                day,
+                timeSlotId: timeSlotIds && timeSlotIds.length > 0 ? timeSlotIds[0] : timeSlotId,
+                timeSlotIds: timeSlotIds && timeSlotIds.length > 1 ? timeSlotIds : [],
+                roomId,
+                type,
+                batchId: batchId || null,
+                lectureId: lectureId || undefined
+            },
             { new: true }
         )
             .populate('classId')
             .populate('teacherId', 'fullName username')
             .populate('timeSlotId')
+            .populate('timeSlotIds')
             .populate('roomId');
 
         res.json(timetable);

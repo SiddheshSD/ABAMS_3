@@ -15,6 +15,7 @@ import TimeSlots from './pages/TimeSlots';
 import Timetable from './pages/Timetable';
 import Subjects from './pages/Subjects';
 import TestTypes from './pages/TestTypes';
+import AcademicSettings from './pages/AcademicSettings';
 import Profile from './pages/Profile';
 import PlaceholderDashboard from './pages/PlaceholderDashboard';
 
@@ -200,6 +201,7 @@ function App() {
             <Route path="timetable" element={<AdminRoute><Timetable /></AdminRoute>} />
             <Route path="subjects" element={<AdminRoute><Subjects /></AdminRoute>} />
             <Route path="test-types" element={<AdminRoute><TestTypes /></AdminRoute>} />
+            <Route path="academic-settings" element={<AdminRoute><AcademicSettings /></AdminRoute>} />
 
             {/* Profile Route - accessible to all authenticated users */}
             <Route path="profile" element={<Profile />} />

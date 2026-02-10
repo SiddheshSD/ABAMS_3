@@ -36,6 +36,11 @@ const subjectSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Department'
     },
+    maxMarks: {
+        type: Number,
+        default: 100,
+        min: 1
+    },
     isActive: {
         type: Boolean,
         default: true

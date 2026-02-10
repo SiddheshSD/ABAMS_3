@@ -28,6 +28,11 @@ const TeacherTestSheet = () => {
     const [editingTest, setEditingTest] = useState(null);
     const [editedMarks, setEditedMarks] = useState([]);
 
+    // IA Preview state
+    const [iaPreview, setIaPreview] = useState(null);
+    const [iaLoading, setIaLoading] = useState(false);
+    const [showIaPreview, setShowIaPreview] = useState(false);
+
     useEffect(() => {
         fetchData();
     }, [classId, subject]);
@@ -202,6 +207,24 @@ const TeacherTestSheet = () => {
         } catch (error) {
             console.error('Failed to delete test:', error);
             setMessage({ type: 'error', text: 'Failed to delete test' });
+        }
+    };
+
+    const fetchIaPreview = async () => {
+        if (iaPreview) {
+            setShowIaPreview(!showIaPreview);
+            return;
+        }
+        setIaLoading(true);
+        try {
+            const response = await api.get(`/teacher/tests/${classId}/${encodeURIComponent(decodedSubject)}/ia-preview`);
+            setIaPreview(response.data);
+            setShowIaPreview(true);
+        } catch (error) {
+            console.error('Failed to fetch IA preview:', error);
+            setMessage({ type: 'error', text: 'Failed to load IA preview' });
+        } finally {
+            setIaLoading(false);
         }
     };
 
@@ -491,6 +514,89 @@ const TeacherTestSheet = () => {
                 {tests.length === 0 && (
                     <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-secondary)' }}>
                         No test records found for {decodedSubject}. Click "+ Create New Test" to get started.
+                    </div>
+                )}
+            </div>
+
+            {/* IA Preview Section */}
+            <div className="card" style={{ marginTop: '20px' }}>
+                <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <h3 className="card-title" style={{ margin: 0 }}>📊 IA Score Preview</h3>
+                    <button
+                        className={`btn ${showIaPreview ? 'btn-outline' : 'btn-primary'}`}
+                        onClick={fetchIaPreview}
+                        disabled={iaLoading}
+                    >
+                        {iaLoading ? 'Loading...' : showIaPreview ? 'Hide Preview' : 'View IA Preview'}
+                    </button>
+                </div>
+
+                {showIaPreview && iaPreview && (
+                    <div className="table-container" style={{ overflowX: 'auto' }}>
+                        <table className="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Roll No</th>
+                                    <th>Name</th>
+                                    <th style={{ textAlign: 'center' }}>UT IA</th>
+                                    <th style={{ textAlign: 'center' }}>Assignment IA</th>
+                                    <th style={{ textAlign: 'center' }}>Attendance IA</th>
+                                    <th style={{ textAlign: 'center' }}>Total IA / {iaPreview.settings?.iaTotal || 20}</th>
+                                    <th style={{ textAlign: 'center' }}>Attendance %</th>
+                                    <th style={{ textAlign: 'center' }}>Eligible</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {iaPreview.iaPreview?.map(row => (
+                                    <tr key={row.studentId}>
+                                        <td>{row.username || '—'}</td>
+                                        <td>{row.fullName}</td>
+                                        <td style={{ textAlign: 'center' }}>{row.utIA?.toFixed(1) ?? '—'}</td>
+                                        <td style={{ textAlign: 'center' }}>{row.assignmentIA?.toFixed(1) ?? '—'}</td>
+                                        <td style={{ textAlign: 'center' }}>{row.attendanceIA?.toFixed(1) ?? '—'}</td>
+                                        <td style={{ textAlign: 'center' }}>
+                                            <span style={{
+                                                padding: '4px 12px',
+                                                borderRadius: '12px',
+                                                fontWeight: '600',
+                                                fontSize: '13px',
+                                                background: (row.totalIA / (iaPreview.settings?.iaTotal || 20)) >= 0.6
+                                                    ? 'rgba(16,185,129,0.1)'
+                                                    : (row.totalIA / (iaPreview.settings?.iaTotal || 20)) >= 0.4
+                                                        ? 'rgba(245,158,11,0.1)'
+                                                        : 'rgba(239,68,68,0.1)',
+                                                color: (row.totalIA / (iaPreview.settings?.iaTotal || 20)) >= 0.6
+                                                    ? 'var(--success)'
+                                                    : (row.totalIA / (iaPreview.settings?.iaTotal || 20)) >= 0.4
+                                                        ? 'var(--warning)'
+                                                        : 'var(--danger)'
+                                            }}>
+                                                {row.totalIA?.toFixed(1)}
+                                            </span>
+                                        </td>
+                                        <td style={{ textAlign: 'center' }}>{row.attendancePercent?.toFixed(0)}%</td>
+                                        <td style={{ textAlign: 'center' }}>
+                                            <span style={{
+                                                padding: '3px 10px',
+                                                borderRadius: '10px',
+                                                fontSize: '12px',
+                                                fontWeight: '500',
+                                                background: row.eligible ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)',
+                                                color: row.eligible ? 'var(--success)' : 'var(--danger)'
+                                            }}>
+                                                {row.eligible ? '✓ Yes' : '✗ No'}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                )}
+
+                {showIaPreview && iaPreview && iaPreview.iaPreview?.length === 0 && (
+                    <div style={{ padding: '24px', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                        No students found for IA preview.
                     </div>
                 )}
             </div>

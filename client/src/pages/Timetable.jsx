@@ -8,6 +8,7 @@ const Timetable = () => {
     const [lectures, setLectures] = useState([]);
     const [timeSlots, setTimeSlots] = useState([]);
     const [rooms, setRooms] = useState([]);
+    const [batches, setBatches] = useState([]);
     const [loading, setLoading] = useState(true);
     const [selectedClass, setSelectedClass] = useState('');
     const [modalOpen, setModalOpen] = useState(false);
@@ -19,8 +20,10 @@ const Timetable = () => {
         teacherId: '',
         day: 'Monday',
         timeSlotId: '',
+        timeSlotIds: [],
         roomId: '',
-        type: 'lecture'
+        type: 'lecture',
+        batchId: ''
     });
 
     const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -33,6 +36,7 @@ const Timetable = () => {
         if (selectedClass) {
             fetchTimetable();
             fetchLecturesForClass();
+            fetchBatches();
         }
     }, [selectedClass]);
 
@@ -75,7 +79,30 @@ const Timetable = () => {
         }
     };
 
+    const fetchBatches = async () => {
+        try {
+            const response = await api.get(`/timetables/class-batches/${selectedClass}`);
+            setBatches(response.data.batches || []);
+        } catch (error) {
+            console.error('Failed to fetch batches:', error);
+            setBatches([]);
+        }
+    };
+
     const handleLectureChange = (lectureId) => {
+        if (lectureId === '__blank__') {
+            setFormData({
+                ...formData,
+                lectureId: '__blank__',
+                classId: selectedClass,
+                subject: 'No Lecture',
+                teacherId: '',
+                type: 'blank',
+                timeSlotIds: [],
+                timeSlotId: formData.timeSlotId
+            });
+            return;
+        }
         if (lectureId) {
             const lecture = lectures.find(l => l._id === lectureId);
             if (lecture) {
@@ -85,7 +112,10 @@ const Timetable = () => {
                     classId: lecture.classId?._id || selectedClass,
                     subject: lecture.subjectId?.name || '',
                     teacherId: lecture.teacherId?._id || '',
-                    type: lecture.type || 'lecture'
+                    type: lecture.type || 'lecture',
+                    // Reset time slots when type changes
+                    timeSlotIds: [],
+                    timeSlotId: formData.timeSlotId
                 });
                 return;
             }
@@ -95,7 +125,26 @@ const Timetable = () => {
             lectureId: '',
             subject: '',
             teacherId: '',
-            type: 'lecture'
+            type: 'lecture',
+            timeSlotIds: [],
+            timeSlotId: formData.timeSlotId
+        });
+    };
+
+    const handleTypeChange = (newType) => {
+        setFormData({
+            ...formData,
+            type: newType,
+            timeSlotIds: [],
+            timeSlotId: formData.timeSlotId
+        });
+    };
+
+    const handleTimeSlotSelection = (slotId) => {
+        setFormData({
+            ...formData,
+            timeSlotId: slotId,
+            timeSlotIds: []
         });
     };
 
@@ -105,12 +154,14 @@ const Timetable = () => {
             const submitData = {
                 classId: formData.classId || selectedClass,
                 subject: formData.subject,
-                teacherId: formData.teacherId,
+                teacherId: formData.teacherId || undefined,
                 day: formData.day,
                 timeSlotId: formData.timeSlotId,
-                roomId: formData.roomId,
+                timeSlotIds: [],
+                roomId: formData.roomId || undefined,
                 type: formData.type,
-                lectureId: formData.lectureId || undefined
+                batchId: formData.batchId || null,
+                lectureId: formData.lectureId === '__blank__' ? undefined : (formData.lectureId || undefined)
             };
 
             if (editingEntry) {
@@ -134,8 +185,10 @@ const Timetable = () => {
             teacherId: entry.teacherId?._id || '',
             day: entry.day,
             timeSlotId: entry.timeSlotId?._id || '',
+            timeSlotIds: entry.timeSlotIds?.map(s => s._id) || [],
             roomId: entry.roomId?._id || '',
-            type: entry.type
+            type: entry.type,
+            batchId: entry.batchId || ''
         });
         setModalOpen(true);
     };
@@ -159,8 +212,10 @@ const Timetable = () => {
             teacherId: '',
             day: day,
             timeSlotId: slotId,
+            timeSlotIds: [],
             roomId: '',
-            type: 'lecture'
+            type: 'lecture',
+            batchId: ''
         });
         setModalOpen(true);
     };
@@ -170,9 +225,57 @@ const Timetable = () => {
         setEditingEntry(null);
     };
 
-    const getEntry = (day, slotId) => {
-        return timetables.find(t => t.day === day && t.timeSlotId?._id === slotId);
+    // Get all entries for a specific day and slot (including batch entries)
+    const getEntriesForSlot = (day, slotId) => {
+        return timetables.filter(t => {
+            const matchesDay = t.day === day;
+            const matchesSlot = t.timeSlotId?._id === slotId ||
+                t.timeSlotIds?.some(s => s._id === slotId);
+            return matchesDay && matchesSlot;
+        });
     };
+
+    // Check if a slot is part of a merged practical
+    const isSlotMerged = (day, slotId, slotIndex) => {
+        const entries = timetables.filter(t => {
+            if (t.day !== day || t.type !== 'practical') return false;
+            if (!t.timeSlotIds || t.timeSlotIds.length <= 1) return false;
+            return t.timeSlotIds.some(s => s._id === slotId);
+        });
+
+        if (entries.length === 0) return { merged: false };
+
+        const entry = entries[0];
+        const slotIds = entry.timeSlotIds.map(s => s._id);
+        const firstSlotIdx = timeSlots.findIndex(s => s._id === slotIds[0] && s.type !== 'break');
+
+        return {
+            merged: true,
+            isFirst: slotIds[0] === slotId,
+            rowSpan: slotIds.length,
+            entry
+        };
+    };
+
+    // Get the batch name
+    const getBatchName = (batchId) => {
+        const batch = batches.find(b => b._id === batchId);
+        return batch ? batch.name : 'Entire Class';
+    };
+
+    // Check if more batches can be added to a slot
+    const canAddMoreBatches = (entries) => {
+        if (entries.length === 0) return false;
+        // If any entry is for the entire class (no batchId), no more can be added
+        if (entries.some(e => !e.batchId)) return false;
+        // Check if there are batches not yet assigned in this slot
+        const assignedBatchIds = entries.map(e => e.batchId?.toString?.() || e.batchId);
+        const availableBatches = batches.filter(b => !assignedBatchIds.includes(b._id?.toString?.() || b._id));
+        return availableBatches.length > 0;
+    };
+
+    // Filter non-break time slots
+    const lectureSlots = timeSlots.filter(s => s.type !== 'break').sort((a, b) => a.order - b.order);
 
     if (loading) {
         return <div className="loading"><div className="spinner"></div></div>;
@@ -225,35 +328,102 @@ const Timetable = () => {
                                 </tr>
                             </thead>
                             <tbody>
-                                {timeSlots.filter(s => s.type !== 'break').map((slot) => (
+                                {lectureSlots.map((slot, slotIndex) => (
                                     <tr key={slot._id}>
                                         <td style={{ fontWeight: '500', fontSize: '13px' }}>
                                             {slot.startTime}<br />
                                             <span style={{ color: 'var(--gray-500)' }}>{slot.endTime}</span>
                                         </td>
                                         {days.map(day => {
-                                            const entry = getEntry(day, slot._id);
+                                            const entries = getEntriesForSlot(day, slot._id);
+                                            const mergeInfo = isSlotMerged(day, slot._id, slotIndex);
+
+                                            // Skip cells that are part of a merged practical (not the first)
+                                            if (mergeInfo.merged && !mergeInfo.isFirst) {
+                                                return null;
+                                            }
+
                                             return (
-                                                <td key={day} style={{ padding: '8px' }}>
-                                                    {entry ? (
-                                                        <div
-                                                            style={{
-                                                                background: entry.type === 'practical' ? 'rgba(14, 165, 233, 0.1)' : 'rgba(99, 102, 241, 0.1)',
-                                                                padding: '8px',
-                                                                borderRadius: '8px',
-                                                                fontSize: '12px',
-                                                                cursor: 'pointer'
-                                                            }}
-                                                            onClick={() => handleEdit(entry)}
-                                                        >
-                                                            <strong>{entry.subject}</strong><br />
-                                                            <span style={{ color: 'var(--gray-600)' }}>{entry.teacherId?.fullName}</span><br />
-                                                            <span style={{ color: 'var(--gray-500)' }}>{entry.roomId?.roomNumber}</span>
-                                                            <button
-                                                                className="btn-icon"
-                                                                style={{ float: 'right', padding: '2px' }}
-                                                                onClick={(e) => { e.stopPropagation(); handleDelete(entry._id); }}
-                                                            >🗑️</button>
+                                                <td
+                                                    key={day}
+                                                    style={{ padding: '8px', verticalAlign: 'top' }}
+                                                    rowSpan={mergeInfo.merged ? mergeInfo.rowSpan : 1}
+                                                >
+                                                    {entries.length > 0 ? (
+                                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                                            {entries.map(entry => (
+                                                                <div
+                                                                    key={entry._id}
+                                                                    style={{
+                                                                        background: entry.type === 'practical'
+                                                                            ? 'linear-gradient(135deg, rgba(14, 165, 233, 0.15), rgba(14, 165, 233, 0.05))'
+                                                                            : 'linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(99, 102, 241, 0.05))',
+                                                                        padding: '8px',
+                                                                        borderRadius: '8px',
+                                                                        fontSize: '12px',
+                                                                        cursor: 'pointer',
+                                                                        border: entry.type === 'practical'
+                                                                            ? '1px solid rgba(14, 165, 233, 0.3)'
+                                                                            : '1px solid rgba(99, 102, 241, 0.3)',
+                                                                        minHeight: mergeInfo.merged ? `${mergeInfo.rowSpan * 60}px` : 'auto'
+                                                                    }}
+                                                                    onClick={() => handleEdit(entry)}
+                                                                >
+                                                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                                                        <div>
+                                                                            <strong>{entry.subject}</strong>
+                                                                            {entry.batchId && (
+                                                                                <span style={{
+                                                                                    fontSize: '10px',
+                                                                                    background: 'var(--warning)',
+                                                                                    color: '#fff',
+                                                                                    padding: '1px 4px',
+                                                                                    borderRadius: '4px',
+                                                                                    marginLeft: '4px'
+                                                                                }}>
+                                                                                    {getBatchName(entry.batchId)}
+                                                                                </span>
+                                                                            )}
+                                                                        </div>
+                                                                        <button
+                                                                            className="btn-icon"
+                                                                            style={{ padding: '2px' }}
+                                                                            onClick={(e) => { e.stopPropagation(); handleDelete(entry._id); }}
+                                                                        >🗑️</button>
+                                                                    </div>
+                                                                    <span style={{ color: 'var(--gray-600)' }}>{entry.teacherId?.fullName}</span><br />
+                                                                    <span style={{ color: 'var(--gray-500)' }}>{entry.roomId?.roomNumber}</span>
+                                                                    {entry.type === 'practical' && (
+                                                                        <div style={{
+                                                                            marginTop: '4px',
+                                                                            fontSize: '10px',
+                                                                            color: 'var(--info)',
+                                                                            fontWeight: '500'
+                                                                        }}>
+                                                                            🔬 Practical
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            ))}
+                                                            {canAddMoreBatches(entries) && (
+                                                                <button
+                                                                    style={{
+                                                                        width: '100%',
+                                                                        padding: '6px',
+                                                                        background: 'rgba(34, 197, 94, 0.1)',
+                                                                        border: '1px dashed rgba(34, 197, 94, 0.5)',
+                                                                        borderRadius: '6px',
+                                                                        cursor: 'pointer',
+                                                                        color: 'var(--success, #22c55e)',
+                                                                        fontSize: '11px',
+                                                                        fontWeight: '500',
+                                                                        marginTop: '2px'
+                                                                    }}
+                                                                    onClick={() => openAddModal(day, slot._id)}
+                                                                >
+                                                                    + Add Batch
+                                                                </button>
+                                                            )}
                                                         </div>
                                                     ) : (
                                                         <button
@@ -301,9 +471,9 @@ const Timetable = () => {
                         <select
                             value={formData.lectureId}
                             onChange={(e) => handleLectureChange(e.target.value)}
-                            required
                         >
                             <option value="">Select a Lecture</option>
+                            <option value="__blank__">— No Lecture (Blank Slot) —</option>
                             {lectures.map(lecture => (
                                 <option key={lecture._id} value={lecture._id}>
                                     {lecture.subjectId?.name} - {lecture.teacherId?.fullName} ({lecture.type})
@@ -311,11 +481,11 @@ const Timetable = () => {
                             ))}
                         </select>
                         <small style={{ color: 'var(--gray-500)', marginTop: '4px', display: 'block' }}>
-                            Lectures are created by HOD. Select one to schedule.
+                            Lectures are created by HOD. Select one to schedule, or choose "No Lecture" for a blank slot.
                         </small>
                     </div>
 
-                    {formData.lectureId && (
+                    {formData.lectureId && formData.lectureId !== '__blank__' && (
                         <div style={{
                             background: 'var(--gray-50)',
                             padding: '12px',
@@ -326,6 +496,42 @@ const Timetable = () => {
                             <strong>Selected Lecture Details:</strong><br />
                             <span>Subject: {formData.subject}</span><br />
                             <span>Type: {formData.type === 'lecture' ? '📚 Lecture' : '🔬 Practical'}</span>
+                        </div>
+                    )}
+
+                    {formData.lectureId === '__blank__' && (
+                        <div style={{
+                            background: 'rgba(245, 158, 11, 0.1)',
+                            padding: '12px',
+                            borderRadius: '8px',
+                            marginBottom: '16px',
+                            fontSize: '14px',
+                            color: '#b45309'
+                        }}>
+                            ⚠️ This will create a blank slot — no lecture, no teacher assigned.
+                        </div>
+                    )}
+
+                    {/* Batch Selection */}
+                    {batches.length > 0 && formData.lectureId && formData.lectureId !== '__blank__' && (
+                        <div className="form-group">
+                            <label className="form-label">Assign To</label>
+                            <select
+                                value={formData.batchId}
+                                onChange={(e) => setFormData({ ...formData, batchId: e.target.value })}
+                            >
+                                <option value="">Entire Class</option>
+                                {batches.map(batch => (
+                                    <option key={batch._id} value={batch._id}>
+                                        {batch.name} ({batch.studentIds?.length || 0} students)
+                                    </option>
+                                ))}
+                            </select>
+                            <small style={{ color: 'var(--gray-500)', marginTop: '4px', display: 'block' }}>
+                                {formData.batchId
+                                    ? 'You can schedule different subjects for other batches at the same time.'
+                                    : 'This lecture will be for the entire class.'}
+                            </small>
                         </div>
                     )}
 
@@ -345,11 +551,11 @@ const Timetable = () => {
                             <label className="form-label">Time Slot *</label>
                             <select
                                 value={formData.timeSlotId}
-                                onChange={(e) => setFormData({ ...formData, timeSlotId: e.target.value })}
+                                onChange={(e) => handleTimeSlotSelection(e.target.value)}
                                 required
                             >
                                 <option value="">Select Slot</option>
-                                {timeSlots.filter(s => s.type !== 'break').map(slot => (
+                                {lectureSlots.map(slot => (
                                     <option key={slot._id} value={slot._id}>
                                         {slot.label} ({slot.startTime} - {slot.endTime})
                                     </option>

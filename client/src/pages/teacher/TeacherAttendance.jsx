@@ -31,8 +31,9 @@ const TeacherAttendance = () => {
         });
     };
 
-    const handleCardClick = (classId, subject) => {
-        navigate(`/teacher/attendance/${classId}/${encodeURIComponent(subject)}`);
+    const handleCardClick = (classId, subject, batchId) => {
+        const batchParam = batchId ? `?batchId=${batchId}` : '';
+        navigate(`/teacher/attendance/${classId}/${encodeURIComponent(subject)}${batchParam}`);
     };
 
     if (loading) {
@@ -61,19 +62,33 @@ const TeacherAttendance = () => {
                             key={index}
                             className="year-card attendance-card"
                             style={{ cursor: 'pointer' }}
-                            onClick={() => handleCardClick(item.classId, item.subject)}
+                            onClick={() => handleCardClick(item.classId, item.subject, item.batchId)}
                         >
                             <div className="year-header">
                                 <span className="year-number">{item.className}</span>
-                                <span className="badge" style={{
-                                    background: 'var(--primary-light)',
-                                    color: 'var(--primary)',
-                                    padding: '4px 8px',
-                                    borderRadius: '4px',
-                                    fontSize: '0.75rem'
-                                }}>
-                                    Year {item.year}
-                                </span>
+                                <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                                    {item.batchName && (
+                                        <span className="badge" style={{
+                                            background: 'rgba(245, 158, 11, 0.15)',
+                                            color: '#f59e0b',
+                                            padding: '4px 8px',
+                                            borderRadius: '4px',
+                                            fontSize: '0.75rem',
+                                            fontWeight: '600'
+                                        }}>
+                                            {item.batchName}
+                                        </span>
+                                    )}
+                                    <span className="badge" style={{
+                                        background: 'var(--primary-light)',
+                                        color: 'var(--primary)',
+                                        padding: '4px 8px',
+                                        borderRadius: '4px',
+                                        fontSize: '0.75rem'
+                                    }}>
+                                        Year {item.year}
+                                    </span>
+                                </div>
                             </div>
 
                             <div style={{ padding: '16px 0' }}>
@@ -120,7 +135,7 @@ const TeacherAttendance = () => {
                                 style={{ width: '100%', marginTop: '8px' }}
                                 onClick={(e) => {
                                     e.stopPropagation();
-                                    handleCardClick(item.classId, item.subject);
+                                    handleCardClick(item.classId, item.subject, item.batchId);
                                 }}
                             >
                                 Manage Attendance

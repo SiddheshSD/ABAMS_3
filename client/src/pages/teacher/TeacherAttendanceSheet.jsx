@@ -1,13 +1,17 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import api from '../../services/api';
 
 const TeacherAttendanceSheet = () => {
     const { classId, subject } = useParams();
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
+    const batchId = searchParams.get('batchId');
     const decodedSubject = decodeURIComponent(subject);
 
     const [classInfo, setClassInfo] = useState(null);
+    const [batchInfo, setBatchInfo] = useState(null);
+    const [batches, setBatches] = useState([]);
     const [students, setStudents] = useState([]);
     const [records, setRecords] = useState([]);
     const [timeSlots, setTimeSlots] = useState([]);
@@ -29,16 +33,19 @@ const TeacherAttendanceSheet = () => {
 
     useEffect(() => {
         fetchData();
-    }, [classId, subject]);
+    }, [classId, subject, batchId]);
 
     const fetchData = async () => {
         try {
+            const batchParam = batchId ? `?batchId=${batchId}` : '';
             const [sheetResponse, timeSlotsResponse] = await Promise.all([
-                api.get(`/teacher/attendance/${classId}/${encodeURIComponent(decodedSubject)}`),
+                api.get(`/teacher/attendance/${classId}/${encodeURIComponent(decodedSubject)}${batchParam}`),
                 api.get('/teacher/timeslots')
             ]);
 
             setClassInfo(sheetResponse.data.classInfo);
+            setBatchInfo(sheetResponse.data.batchInfo || null);
+            setBatches(sheetResponse.data.batches || []);
             setStudents(sheetResponse.data.students);
             setRecords(sheetResponse.data.attendanceRecords || []);
             setTimeSlots(timeSlotsResponse.data);
@@ -109,7 +116,8 @@ const TeacherAttendanceSheet = () => {
                 subject: decodedSubject,
                 date: newAttendance.date,
                 timeSlotId: newAttendance.timeSlotId,
-                records: newAttendance.records
+                records: newAttendance.records,
+                batchId: batchId || null
             });
 
             setMessage({ type: 'success', text: 'Attendance saved successfully!' });
@@ -241,6 +249,62 @@ const TeacherAttendanceSheet = () => {
                         </button>
                     </div>
                 </div>
+
+                {/* Batch Navbar */}
+                {batches.length > 0 && (
+                    <div style={{
+                        display: 'flex',
+                        gap: '0',
+                        padding: '0 16px',
+                        borderBottom: '2px solid var(--gray-200)',
+                        marginBottom: '8px',
+                        overflowX: 'auto'
+                    }}>
+                        <button
+                            onClick={() => {
+                                navigate(`/teacher/attendance/${classId}/${encodeURIComponent(decodedSubject)}`);
+                            }}
+                            style={{
+                                padding: '10px 20px',
+                                border: 'none',
+                                background: 'none',
+                                cursor: 'pointer',
+                                fontSize: '14px',
+                                fontWeight: !batchId ? '600' : '400',
+                                color: !batchId ? 'var(--primary)' : 'var(--gray-500)',
+                                borderBottom: !batchId ? '2px solid var(--primary)' : '2px solid transparent',
+                                marginBottom: '-2px',
+                                whiteSpace: 'nowrap',
+                                transition: 'all 0.2s ease'
+                            }}
+                        >
+                            All Students
+                        </button>
+                        {batches.map(batch => (
+                            <button
+                                key={batch._id}
+                                onClick={() => {
+                                    navigate(`/teacher/attendance/${classId}/${encodeURIComponent(decodedSubject)}?batchId=${batch._id}`);
+                                }}
+                                style={{
+                                    padding: '10px 20px',
+                                    border: 'none',
+                                    background: 'none',
+                                    cursor: 'pointer',
+                                    fontSize: '14px',
+                                    fontWeight: batchId === batch._id.toString() ? '600' : '400',
+                                    color: batchId === batch._id.toString() ? 'var(--primary)' : 'var(--gray-500)',
+                                    borderBottom: batchId === batch._id.toString() ? '2px solid var(--primary)' : '2px solid transparent',
+                                    marginBottom: '-2px',
+                                    whiteSpace: 'nowrap',
+                                    transition: 'all 0.2s ease'
+                                }}
+                            >
+                                {batch.name}
+                            </button>
+                        ))}
+                    </div>
+                )}
 
                 {/* Messages */}
                 {message.text && (

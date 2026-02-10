@@ -10,6 +10,8 @@ const TimeSlot = require('../models/TimeSlot');
 const LeaveRequest = require('../models/LeaveRequest');
 const Complaint = require('../models/Complaint');
 const Subject = require('../models/Subject');
+const AcademicSettings = require('../models/AcademicSettings');
+const academicCalc = require('../utils/academicCalc');
 const { auth } = require('../middleware/auth');
 
 // Middleware to ensure Class Coordinator access and get their assigned class
@@ -156,6 +158,65 @@ router.get('/stats', async (req, res) => {
             status: 'open'
         });
 
+        // Calculate at-risk students
+        const settings = await AcademicSettings.getSettings();
+        const allStudents = await User.find({ role: 'student', classId })
+            .select('fullName username');
+        const timetableSubjects = await Timetable.find({ classId }).distinct('subject');
+        const allAttendance = await Attendance.find({ classId });
+        const allTests = await Test.find({ classId });
+
+        const atRiskStudents = [];
+        for (const student of allStudents) {
+            const sid = student._id.toString();
+            for (const subj of timetableSubjects) {
+                // Calculate attendance for this subject
+                const subjRecords = allAttendance.filter(r => r.subject === subj);
+                let total = 0, attended = 0;
+                for (const record of subjRecords) {
+                    const sr = record.records.find(r => r.studentId.toString() === sid);
+                    if (sr) { total++; if (sr.status === 'present') attended++; }
+                }
+                const attPercent = academicCalc.calcAttendancePercent(attended, total);
+
+                if (attPercent < settings.minAttendancePercent && total > 0) {
+                    // Calculate IA for this student-subject
+                    const subjTests = allTests.filter(t => t.subject === subj);
+                    const utScores = [], assignScores = [];
+                    let utMax = 20, assignMax = 0;
+                    for (const test of subjTests) {
+                        const sm = test.marks.find(m => m.studentId.toString() === sid);
+                        const score = sm?.score;
+                        const tl = (test.testType || '').toLowerCase();
+                        if (tl.includes('ut') || tl.includes('unit test')) {
+                            if (score != null) utScores.push(score);
+                            utMax = test.maxScore;
+                        } else if (tl.includes('assignment')) {
+                            if (score != null) assignScores.push(score);
+                            assignMax = Math.max(assignMax, test.maxScore);
+                        }
+                    }
+                    const utIA = academicCalc.calcUTIA(utScores, utMax, settings.utWeight);
+                    const assignIA = assignScores.length > 0
+                        ? academicCalc.calcAssignmentIA(assignScores.reduce((a, b) => a + b, 0) / assignScores.length, assignMax, settings.assignmentWeight) : 0;
+                    const attIA = academicCalc.calcAttendanceIA(attPercent, settings.attendanceWeight, settings.attendanceSlabs);
+                    const totalIA = academicCalc.calcTotalIA(utIA, assignIA, attIA);
+
+                    atRiskStudents.push({
+                        studentId: student._id,
+                        fullName: student.fullName,
+                        username: student.username,
+                        subject: subj,
+                        attendancePercent: attPercent,
+                        totalIA,
+                        iaTotal: settings.iaTotal,
+                        classesNeeded: academicCalc.requiredClasses(total, attended, settings.minAttendancePercent),
+                        status: attPercent < 60 ? 'critical' : 'warning'
+                    });
+                }
+            }
+        }
+
         res.json({
             className: req.assignedClass.name,
             year: req.assignedClass.year,
@@ -165,7 +226,8 @@ router.get('/stats', async (req, res) => {
             overallTestPerformance,
             subjectStats,
             pendingLeaves,
-            openComplaints
+            openComplaints,
+            atRiskStudents
         });
     } catch (error) {
         console.error('CC stats error:', error);

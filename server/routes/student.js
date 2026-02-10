@@ -9,6 +9,8 @@ const TimeSlot = require('../models/TimeSlot');
 const LeaveRequest = require('../models/LeaveRequest');
 const Complaint = require('../models/Complaint');
 const Subject = require('../models/Subject');
+const AcademicSettings = require('../models/AcademicSettings');
+const academicCalc = require('../utils/academicCalc');
 const { auth } = require('../middleware/auth');
 
 // Middleware to ensure student or parent access
@@ -70,6 +72,9 @@ router.get('/stats', async (req, res) => {
         // Get all subjects for this class (from timetable entries)
         const timetableEntries = await Timetable.find({ classId }).distinct('subject');
 
+        // Get academic settings for IA calculations
+        const settings = await AcademicSettings.getSettings();
+
         // Calculate attendance stats per subject
         const attendanceStats = [];
         for (const subject of timetableEntries) {
@@ -93,7 +98,9 @@ router.get('/stats', async (req, res) => {
                 }
             }
 
-            const percentage = totalLectures > 0 ? Math.round((attended / totalLectures) * 100) : 0;
+            const percentage = academicCalc.calcAttendancePercent(attended, totalLectures);
+            const eligible = academicCalc.isEligible(percentage, settings.minAttendancePercent);
+            const classesNeeded = academicCalc.requiredClasses(totalLectures, attended, settings.minAttendancePercent);
             let status = 'good';
             if (percentage < 75) status = 'warning';
             if (percentage < 60) status = 'low';
@@ -103,7 +110,68 @@ router.get('/stats', async (req, res) => {
                 totalLectures,
                 attended,
                 percentage,
-                status
+                status,
+                eligible,
+                classesNeeded
+            });
+        }
+
+        // Calculate IA per subject
+        const iaStats = [];
+        for (const subject of timetableEntries) {
+            const tests = await Test.find({ classId, subject }).sort({ date: -1 });
+
+            // Collect UT scores for this student
+            const utScores = [];
+            let utMaxMarks = 20;
+            const assignmentScores = [];
+            let assignmentMax = 0;
+            const practicalScores = [];
+            let practicalMax = 0;
+
+            for (const test of tests) {
+                const studentMark = test.marks.find(
+                    m => m.studentId.toString() === studentId.toString()
+                );
+                const score = studentMark?.score;
+                const testTypeLower = (test.testType || '').toLowerCase();
+
+                if (testTypeLower.includes('ut') || testTypeLower.includes('unit test')) {
+                    if (score !== null && score !== undefined) utScores.push(score);
+                    utMaxMarks = test.maxScore;
+                } else if (testTypeLower.includes('assignment')) {
+                    if (score !== null && score !== undefined) assignmentScores.push(score);
+                    assignmentMax = Math.max(assignmentMax, test.maxScore);
+                } else if (testTypeLower.includes('practical') || testTypeLower.includes('oral') || testTypeLower.includes('term work')) {
+                    if (score !== null && score !== undefined) practicalScores.push(score);
+                    practicalMax = Math.max(practicalMax, test.maxScore);
+                }
+            }
+
+            // Calculate IA components
+            const utIA = academicCalc.calcUTIA(utScores, utMaxMarks, settings.utWeight);
+            const assignmentIA = assignmentScores.length > 0
+                ? academicCalc.calcAssignmentIA(
+                    assignmentScores.reduce((a, b) => a + b, 0) / assignmentScores.length,
+                    assignmentMax,
+                    settings.assignmentWeight
+                ) : 0;
+
+            // Get attendance for this subject
+            const subjectAtt = attendanceStats.find(a => a.subject === subject);
+            const attPercent = subjectAtt ? subjectAtt.percentage : 0;
+            const attendanceIA = academicCalc.calcAttendanceIA(attPercent, settings.attendanceWeight, settings.attendanceSlabs);
+
+            const totalIA = academicCalc.calcTotalIA(utIA, assignmentIA, attendanceIA);
+
+            iaStats.push({
+                subject,
+                utIA,
+                assignmentIA,
+                attendanceIA,
+                totalIA,
+                iaTotal: settings.iaTotal,
+                eligible: subjectAtt ? subjectAtt.eligible : false
             });
         }
 
@@ -162,12 +230,19 @@ router.get('/stats', async (req, res) => {
             type: entry.type
         }));
 
+        // Calculate overall attendance
+        const overallAttendance = academicCalc.calcOverallAttendance(
+            attendanceStats.map(s => ({ attended: s.attended, conducted: s.totalLectures }))
+        );
+
         res.json({
             className: classInfo.name,
             year: classInfo.year,
             department: classInfo.departmentId?.name || 'N/A',
             attendanceStats,
             testStats,
+            iaStats,
+            overallAttendance,
             todaysTimetable: formattedTimetable
         });
 
@@ -251,6 +326,9 @@ router.get('/attendance', async (req, res) => {
         // Get all subjects from timetable
         const subjects = await Timetable.find({ classId }).distinct('subject');
 
+        // Get academic settings
+        const settings = await AcademicSettings.getSettings();
+
         const attendanceSummary = [];
         for (const subject of subjects) {
             const attendanceRecords = await Attendance.find({
@@ -273,7 +351,9 @@ router.get('/attendance', async (req, res) => {
                 }
             }
 
-            const percentage = totalLectures > 0 ? Math.round((attended / totalLectures) * 100) : 0;
+            const percentage = academicCalc.calcAttendancePercent(attended, totalLectures);
+            const eligible = academicCalc.isEligible(percentage, settings.minAttendancePercent);
+            const classesNeeded = academicCalc.requiredClasses(totalLectures, attended, settings.minAttendancePercent);
             let status = 'good';
             if (percentage < 75) status = 'warning';
             if (percentage < 60) status = 'low';
@@ -284,7 +364,9 @@ router.get('/attendance', async (req, res) => {
                 attended,
                 absent: totalLectures - attended,
                 percentage,
-                status
+                status,
+                eligible,
+                classesNeeded
             });
         }
 
@@ -341,6 +423,103 @@ router.get('/attendance/:subject', async (req, res) => {
 
     } catch (error) {
         console.error('Student attendance detail error:', error);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// ============================================
+// IA SUMMARY
+// ============================================
+
+// @route   GET /api/student/ia-summary
+// @desc    Get full IA calculation breakdown per subject
+router.get('/ia-summary', async (req, res) => {
+    try {
+        let studentId = req.studentId;
+        let classId = req.studentClassId;
+
+        if (req.isParent) {
+            const student = await User.findById(studentId);
+            if (!student) {
+                return res.status(404).json({ message: 'Linked student not found' });
+            }
+            classId = student.classId;
+        }
+
+        if (!classId) {
+            return res.status(400).json({ message: 'Student is not assigned to a class' });
+        }
+
+        const settings = await AcademicSettings.getSettings();
+        const subjects = await Timetable.find({ classId }).distinct('subject');
+
+        const iaSummary = [];
+        for (const subject of subjects) {
+            // Attendance
+            const attendanceRecords = await Attendance.find({ classId, subject });
+            let totalLectures = 0;
+            let attended = 0;
+            for (const record of attendanceRecords) {
+                const studentRecord = record.records.find(
+                    r => r.studentId.toString() === studentId.toString()
+                );
+                if (studentRecord) {
+                    totalLectures++;
+                    if (studentRecord.status === 'present') attended++;
+                }
+            }
+            const attPercent = academicCalc.calcAttendancePercent(attended, totalLectures);
+
+            // Tests
+            const tests = await Test.find({ classId, subject });
+            const utScores = [];
+            let utMaxMarks = 20;
+            const assignmentScores = [];
+            let assignmentMax = 0;
+
+            for (const test of tests) {
+                const studentMark = test.marks.find(
+                    m => m.studentId.toString() === studentId.toString()
+                );
+                const score = studentMark?.score;
+                const testTypeLower = (test.testType || '').toLowerCase();
+
+                if (testTypeLower.includes('ut') || testTypeLower.includes('unit test')) {
+                    if (score !== null && score !== undefined) utScores.push(score);
+                    utMaxMarks = test.maxScore;
+                } else if (testTypeLower.includes('assignment')) {
+                    if (score !== null && score !== undefined) assignmentScores.push(score);
+                    assignmentMax = Math.max(assignmentMax, test.maxScore);
+                }
+            }
+
+            const utIA = academicCalc.calcUTIA(utScores, utMaxMarks, settings.utWeight);
+            const assignmentIA = assignmentScores.length > 0
+                ? academicCalc.calcAssignmentIA(
+                    assignmentScores.reduce((a, b) => a + b, 0) / assignmentScores.length,
+                    assignmentMax,
+                    settings.assignmentWeight
+                ) : 0;
+            const attendanceIA = academicCalc.calcAttendanceIA(attPercent, settings.attendanceWeight, settings.attendanceSlabs);
+            const totalIA = academicCalc.calcTotalIA(utIA, assignmentIA, attendanceIA);
+
+            iaSummary.push({
+                subject,
+                utIA,
+                utScores,
+                assignmentIA,
+                attendanceIA,
+                totalIA,
+                iaTotal: settings.iaTotal,
+                attendancePercent: attPercent,
+                eligible: academicCalc.isEligible(attPercent, settings.minAttendancePercent),
+                classesNeeded: academicCalc.requiredClasses(totalLectures, attended, settings.minAttendancePercent)
+            });
+        }
+
+        res.json({ iaSummary, settings: { iaTotal: settings.iaTotal, eseTotal: settings.eseTotal } });
+    } catch (error) {
+        console.error('Student IA summary error:', error);
         res.status(500).json({ message: 'Server error' });
     }
 });

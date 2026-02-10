@@ -158,6 +158,63 @@ const HodDashboard = () => {
                 </div>
             </div>
 
+            {/* At-Risk Students by Year */}
+            {stats?.atRiskByYear && (
+                <div className="card" style={{ marginBottom: '24px' }}>
+                    <div className="card-header">
+                        <h2 className="card-title">⚠️ At-Risk Students by Year</h2>
+                        <p style={{ margin: 0, color: 'var(--gray-500)', fontSize: '0.9rem' }}>
+                            Students below minimum attendance threshold
+                        </p>
+                    </div>
+                    <div className="year-cards-grid">
+                        {[1, 2, 3, 4].map(year => {
+                            const data = stats.atRiskByYear[year] || { count: 0, students: [] };
+                            return (
+                                <div key={year} className="year-card">
+                                    <div className="year-header">
+                                        <span className="year-number">
+                                            {year}{year === 1 ? 'st' : year === 2 ? 'nd' : year === 3 ? 'rd' : 'th'} Year
+                                        </span>
+                                        <span className={`attendance-badge ${data.count > 0 ? 'critical' : 'good'}`}>
+                                            {data.count} at risk
+                                        </span>
+                                    </div>
+                                    {data.students && data.students.length > 0 ? (
+                                        <div style={{ maxHeight: '150px', overflowY: 'auto', marginTop: '8px' }}>
+                                            {data.students.map((s, i) => (
+                                                <div key={i} style={{
+                                                    display: 'flex',
+                                                    justifyContent: 'space-between',
+                                                    alignItems: 'center',
+                                                    padding: '6px 0',
+                                                    borderBottom: '1px solid var(--border)',
+                                                    fontSize: '13px'
+                                                }}>
+                                                    <span>{s.fullName}</span>
+                                                    <span style={{
+                                                        padding: '2px 8px',
+                                                        borderRadius: '8px',
+                                                        fontSize: '11px',
+                                                        background: 'rgba(239,68,68,0.1)',
+                                                        color: 'var(--danger)'
+                                                    }}>
+                                                        {s.attendancePercent?.toFixed(0)}%
+                                                    </span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <div style={{ padding: '12px 0', color: 'var(--text-secondary)', fontSize: '13px' }}>
+                                            ✓ No at-risk students
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
 
             {/* Quick Actions & Alerts */}
             <div className="dashboard-grid">

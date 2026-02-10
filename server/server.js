@@ -29,6 +29,7 @@ app.use('/api/teacher', require('./routes/teacher'));
 app.use('/api/student', require('./routes/student'));
 app.use('/api/cc', require('./routes/cc'));
 app.use('/api/test-types', require('./routes/testTypes'));
+app.use('/api/academic-settings', require('./routes/academicSettings'));
 // Health check
 app.get('/api/health', (req, res) => {
     res.json({ status: 'OK', message: 'ABAMS Server Running' });

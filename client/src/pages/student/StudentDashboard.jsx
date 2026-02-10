@@ -174,6 +174,19 @@ const StudentDashboard = () => {
                                             {subject.percentage}%
                                         </span>
                                     </div>
+                                    {subject.eligible === false && (
+                                        <div style={{
+                                            padding: '6px 10px',
+                                            borderRadius: '6px',
+                                            fontSize: '12px',
+                                            fontWeight: '500',
+                                            background: 'rgba(239,68,68,0.1)',
+                                            color: 'var(--danger)',
+                                            marginBottom: '8px'
+                                        }}>
+                                            ⚠️ Ineligible — Need {subject.classesNeeded || '?'} more classes
+                                        </div>
+                                    )}
                                     <div className="year-stats">
                                         <div className="year-stat">
                                             <span className="stat-value">{subject.attended}</span>
@@ -262,6 +275,78 @@ const StudentDashboard = () => {
                     )}
                 </div>
             </div>
+
+            {/* IA Score Summary */}
+            {stats?.iaStats && stats.iaStats.length > 0 && (
+                <div className="card" style={{ marginBottom: '24px' }}>
+                    <div className="card-header">
+                        <h2 className="card-title">📊 Internal Assessment Summary</h2>
+                        <p style={{ margin: 0, color: 'var(--gray-500)', fontSize: '0.9rem' }}>
+                            Overall Attendance: {stats?.overallAttendance?.toFixed(0) || 0}%
+                        </p>
+                    </div>
+                    <div className="table-container">
+                        <table className="table">
+                            <thead>
+                                <tr>
+                                    <th>Subject</th>
+                                    <th style={{ textAlign: 'center' }}>UT IA</th>
+                                    <th style={{ textAlign: 'center' }}>Assignment IA</th>
+                                    <th style={{ textAlign: 'center' }}>Attendance IA</th>
+                                    <th style={{ textAlign: 'center' }}>Total IA</th>
+                                    <th style={{ textAlign: 'center' }}>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {stats.iaStats.map((ia, index) => {
+                                    const iaTotal = ia.iaTotal || 20;
+                                    const pct = (ia.totalIA / iaTotal) * 100;
+                                    return (
+                                        <tr key={index}>
+                                            <td style={{ fontWeight: '500' }}>{ia.subject}</td>
+                                            <td style={{ textAlign: 'center' }}>{ia.utIA?.toFixed(1) ?? '—'}</td>
+                                            <td style={{ textAlign: 'center' }}>{ia.assignmentIA?.toFixed(1) ?? '—'}</td>
+                                            <td style={{ textAlign: 'center' }}>{ia.attendanceIA?.toFixed(1) ?? '—'}</td>
+                                            <td style={{ textAlign: 'center' }}>
+                                                <span style={{
+                                                    padding: '4px 12px',
+                                                    borderRadius: '12px',
+                                                    fontWeight: '600',
+                                                    fontSize: '13px',
+                                                    background: pct >= 60
+                                                        ? 'rgba(16,185,129,0.1)'
+                                                        : pct >= 40
+                                                            ? 'rgba(245,158,11,0.1)'
+                                                            : 'rgba(239,68,68,0.1)',
+                                                    color: pct >= 60
+                                                        ? 'var(--success)'
+                                                        : pct >= 40
+                                                            ? 'var(--warning)'
+                                                            : 'var(--danger)'
+                                                }}>
+                                                    {ia.totalIA?.toFixed(1)} / {iaTotal}
+                                                </span>
+                                            </td>
+                                            <td style={{ textAlign: 'center' }}>
+                                                <span style={{
+                                                    padding: '3px 10px',
+                                                    borderRadius: '10px',
+                                                    fontSize: '12px',
+                                                    fontWeight: '500',
+                                                    background: ia.eligible !== false ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)',
+                                                    color: ia.eligible !== false ? 'var(--success)' : 'var(--danger)'
+                                                }}>
+                                                    {ia.eligible !== false ? '✓ Eligible' : '✗ Ineligible'}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

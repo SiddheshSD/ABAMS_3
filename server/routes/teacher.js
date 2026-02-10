@@ -9,6 +9,8 @@ const TestType = require('../models/TestType');
 const TimeSlot = require('../models/TimeSlot');
 const LeaveRequest = require('../models/LeaveRequest');
 const Complaint = require('../models/Complaint');
+const AcademicSettings = require('../models/AcademicSettings');
+const academicCalc = require('../utils/academicCalc');
 const { auth } = require('../middleware/auth');
 
 // Middleware to ensure teacher access
@@ -249,38 +251,57 @@ router.get('/attendance', async (req, res) => {
             .populate('classId')
             .populate('timeSlotId');
 
-        // Group by class and subject
+        // Group by class, subject, and batchId
         const classSubjectMap = new Map();
         for (const entry of timetableEntries) {
             if (!entry.classId) continue;
             if (subject && entry.subject !== subject) continue;
 
-            const key = `${entry.classId._id}-${entry.subject}`;
+            const batchKey = entry.batchId ? entry.batchId.toString() : 'all';
+            const key = `${entry.classId._id}-${entry.subject}-${batchKey}`;
             if (!classSubjectMap.has(key)) {
                 classSubjectMap.set(key, {
                     classId: entry.classId._id,
                     className: entry.classId.name,
                     year: entry.classId.year,
                     departmentId: entry.classId.departmentId,
-                    subject: entry.subject
+                    subject: entry.subject,
+                    batchId: entry.batchId || null,
+                    batches: entry.classId.batches || []
                 });
             }
         }
 
-        // Get attendance data for each class-subject
+        // Get attendance data for each class-subject-batch
         const attendanceData = [];
         for (const [key, data] of classSubjectMap) {
-            const studentCount = await User.countDocuments({
-                role: 'student',
-                classId: data.classId
-            });
+            let studentCount;
+            let batchName = null;
+
+            if (data.batchId) {
+                // Find batch in class to get student count and name
+                const batch = data.batches.find(b => b._id.toString() === data.batchId.toString());
+                studentCount = batch ? batch.studentIds.length : 0;
+                batchName = batch ? batch.name : 'Unknown Batch';
+            } else {
+                studentCount = await User.countDocuments({
+                    role: 'student',
+                    classId: data.classId
+                });
+            }
 
             // Get last attendance record
-            const lastAttendance = await Attendance.findOne({
+            const attendanceFilter = {
                 classId: data.classId,
                 subject: data.subject,
                 teacherId
-            }).sort({ date: -1 });
+            };
+            if (data.batchId) {
+                attendanceFilter.batchId = data.batchId;
+            } else {
+                attendanceFilter.batchId = null;
+            }
+            const lastAttendance = await Attendance.findOne(attendanceFilter).sort({ date: -1 });
 
             // Get department name
             const classDoc = await Class.findById(data.classId).populate('departmentId');
@@ -291,6 +312,8 @@ router.get('/attendance', async (req, res) => {
                 year: data.year,
                 department: classDoc?.departmentId?.name || 'N/A',
                 subject: data.subject,
+                batchId: data.batchId || null,
+                batchName,
                 totalStudents: studentCount,
                 lastAttendanceDate: lastAttendance?.date || null
             });
@@ -309,6 +332,7 @@ router.get('/attendance/:classId/:subject', async (req, res) => {
     try {
         const teacherId = req.teacherId;
         const { classId, subject } = req.params;
+        const { batchId } = req.query;
 
         // Verify teacher teaches this class-subject
         const timetableEntry = await Timetable.findOne({
@@ -321,18 +345,43 @@ router.get('/attendance/:classId/:subject', async (req, res) => {
             return res.status(403).json({ message: 'You do not teach this class-subject combination' });
         }
 
-        // Get students in this class
-        const students = await User.find({
-            role: 'student',
-            classId
-        }).select('fullName username').sort({ fullName: 1 });
+        let students;
+        let batchInfo = null;
 
-        // Get all attendance records for this class-subject
-        const attendanceRecords = await Attendance.find({
+        if (batchId) {
+            // Get batch students only
+            const classDoc = await Class.findById(classId);
+            const batch = classDoc?.batches?.find(b => b._id.toString() === batchId);
+            if (batch) {
+                batchInfo = { _id: batch._id, name: batch.name };
+                students = await User.find({
+                    _id: { $in: batch.studentIds },
+                    role: 'student'
+                }).select('fullName username').sort({ fullName: 1 });
+            } else {
+                students = [];
+            }
+        } else {
+            // Get all students in this class
+            students = await User.find({
+                role: 'student',
+                classId
+            }).select('fullName username').sort({ fullName: 1 });
+        }
+
+        // Get attendance records filtered by batchId
+        const attendanceFilter = {
             classId,
             subject,
             teacherId
-        })
+        };
+        if (batchId) {
+            attendanceFilter.batchId = batchId;
+        } else {
+            attendanceFilter.$or = [{ batchId: null }, { batchId: { $exists: false } }];
+        }
+
+        const attendanceRecords = await Attendance.find(attendanceFilter)
             .populate('timeSlotId')
             .sort({ date: -1 });
 
@@ -347,6 +396,8 @@ router.get('/attendance/:classId/:subject', async (req, res) => {
                 department: classDoc?.departmentId?.name || 'N/A',
                 subject
             },
+            batchInfo,
+            batches: classDoc?.batches || [],
             students,
             attendanceRecords
         });
@@ -361,7 +412,7 @@ router.get('/attendance/:classId/:subject', async (req, res) => {
 router.post('/attendance', async (req, res) => {
     try {
         const teacherId = req.teacherId;
-        const { classId, subject, date, timeSlotId, records } = req.body;
+        const { classId, subject, date, timeSlotId, records, batchId } = req.body;
 
         // Verify teacher teaches this class-subject
         const timetableEntry = await Timetable.findOne({
@@ -380,12 +431,19 @@ router.post('/attendance', async (req, res) => {
         const endOfDay = new Date(attendanceDate);
         endOfDay.setHours(23, 59, 59, 999);
 
-        const existingAttendance = await Attendance.findOne({
+        const duplicateFilter = {
             classId,
             subject,
             timeSlotId,
             date: { $gte: attendanceDate, $lte: endOfDay }
-        });
+        };
+        if (batchId) {
+            duplicateFilter.batchId = batchId;
+        } else {
+            duplicateFilter.$or = [{ batchId: null }, { batchId: { $exists: false } }];
+        }
+
+        const existingAttendance = await Attendance.findOne(duplicateFilter);
 
         if (existingAttendance) {
             return res.status(400).json({ message: 'Attendance already exists for this class, subject, date, and time slot' });
@@ -399,6 +457,7 @@ router.post('/attendance', async (req, res) => {
             classId,
             subject,
             teacherId,
+            batchId: batchId || null,
             timeSlotId,
             date: attendanceDate,
             records,
@@ -612,8 +671,96 @@ router.get('/tests/:classId/:subject', async (req, res) => {
             students,
             tests
         });
+
+        // Note: IA preview is computed client-side or via separate endpoint below
     } catch (error) {
         console.error('Test sheet error:', error);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// @route   GET /api/teacher/tests/:classId/:subject/ia-preview
+// @desc    Get IA preview for all students in a class-subject
+router.get('/tests/:classId/:subject/ia-preview', async (req, res) => {
+    try {
+        const teacherId = req.teacherId;
+        const { classId, subject } = req.params;
+
+        // Verify teacher teaches this class-subject
+        const timetableEntry = await Timetable.findOne({ teacherId, classId, subject });
+        if (!timetableEntry) {
+            return res.status(403).json({ message: 'You do not teach this class-subject combination' });
+        }
+
+        const settings = await AcademicSettings.getSettings();
+        const students = await User.find({ role: 'student', classId })
+            .select('fullName username').sort({ fullName: 1 });
+        const tests = await Test.find({ classId, subject });
+        const attendanceRecords = await Attendance.find({ classId, subject });
+
+        const iaPreview = [];
+        for (const student of students) {
+            const sid = student._id.toString();
+
+            // Attendance
+            let totalLectures = 0;
+            let attended = 0;
+            for (const record of attendanceRecords) {
+                const sr = record.records.find(r => r.studentId.toString() === sid);
+                if (sr) {
+                    totalLectures++;
+                    if (sr.status === 'present') attended++;
+                }
+            }
+            const attPercent = academicCalc.calcAttendancePercent(attended, totalLectures);
+
+            // UT scores
+            const utScores = [];
+            let utMaxMarks = 20;
+            const assignmentScores = [];
+            let assignmentMax = 0;
+
+            for (const test of tests) {
+                const studentMark = test.marks.find(m => m.studentId.toString() === sid);
+                const score = studentMark?.score;
+                const tl = (test.testType || '').toLowerCase();
+
+                if (tl.includes('ut') || tl.includes('unit test')) {
+                    if (score !== null && score !== undefined) utScores.push(score);
+                    utMaxMarks = test.maxScore;
+                } else if (tl.includes('assignment')) {
+                    if (score !== null && score !== undefined) assignmentScores.push(score);
+                    assignmentMax = Math.max(assignmentMax, test.maxScore);
+                }
+            }
+
+            const utIA = academicCalc.calcUTIA(utScores, utMaxMarks, settings.utWeight);
+            const assignmentIA = assignmentScores.length > 0
+                ? academicCalc.calcAssignmentIA(
+                    assignmentScores.reduce((a, b) => a + b, 0) / assignmentScores.length,
+                    assignmentMax,
+                    settings.assignmentWeight
+                ) : 0;
+            const attendanceIA = academicCalc.calcAttendanceIA(attPercent, settings.attendanceWeight, settings.attendanceSlabs);
+            const totalIA = academicCalc.calcTotalIA(utIA, assignmentIA, attendanceIA);
+
+            iaPreview.push({
+                studentId: student._id,
+                fullName: student.fullName,
+                username: student.username,
+                utIA,
+                assignmentIA,
+                attendanceIA,
+                totalIA,
+                iaTotal: settings.iaTotal,
+                attendancePercent: attPercent,
+                eligible: academicCalc.isEligible(attPercent, settings.minAttendancePercent)
+            });
+        }
+
+        res.json({ iaPreview, settings: { iaTotal: settings.iaTotal } });
+    } catch (error) {
+        console.error('IA preview error:', error);
         res.status(500).json({ message: 'Server error' });
     }
 });
