@@ -7,6 +7,21 @@ const testTypeSchema = new mongoose.Schema({
         unique: true,
         trim: true
     },
+    description: {
+        type: String,
+        trim: true,
+        default: ''
+    },
+    category: {
+        type: String,
+        enum: ['ut', 'assignment', 'practical', 'ese'],
+        default: 'ut'
+    },
+    maxScore: {
+        type: Number,
+        default: 20,
+        min: 1
+    },
     isActive: {
         type: Boolean,
         default: true

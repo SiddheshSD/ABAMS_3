@@ -5,6 +5,7 @@ const Class = require('../models/Class');
 const Timetable = require('../models/Timetable');
 const Attendance = require('../models/Attendance');
 const Test = require('../models/Test');
+const TestType = require('../models/TestType');
 const TimeSlot = require('../models/TimeSlot');
 const LeaveRequest = require('../models/LeaveRequest');
 const Complaint = require('../models/Complaint');
@@ -118,10 +119,17 @@ router.get('/stats', async (req, res) => {
 
         // Calculate IA per subject
         const iaStats = [];
+        // Build a category map from TestType collection
+        const allTestTypes = await TestType.find({});
+        const categoryMap = {};
+        for (const tt of allTestTypes) {
+            categoryMap[tt.name] = tt.category || 'ut';
+        }
+
         for (const subject of timetableEntries) {
             const tests = await Test.find({ classId, subject }).sort({ date: -1 });
 
-            // Collect UT scores for this student
+            // Collect scores by category
             const utScores = [];
             let utMaxMarks = 20;
             const assignmentScores = [];
@@ -134,15 +142,15 @@ router.get('/stats', async (req, res) => {
                     m => m.studentId.toString() === studentId.toString()
                 );
                 const score = studentMark?.score;
-                const testTypeLower = (test.testType || '').toLowerCase();
+                const cat = categoryMap[test.testType] || 'ut';
 
-                if (testTypeLower.includes('ut') || testTypeLower.includes('unit test')) {
+                if (cat === 'ut') {
                     if (score !== null && score !== undefined) utScores.push(score);
                     utMaxMarks = test.maxScore;
-                } else if (testTypeLower.includes('assignment')) {
+                } else if (cat === 'assignment') {
                     if (score !== null && score !== undefined) assignmentScores.push(score);
                     assignmentMax = Math.max(assignmentMax, test.maxScore);
-                } else if (testTypeLower.includes('practical') || testTypeLower.includes('oral') || testTypeLower.includes('term work')) {
+                } else if (cat === 'practical') {
                     if (score !== null && score !== undefined) practicalScores.push(score);
                     practicalMax = Math.max(practicalMax, test.maxScore);
                 }
@@ -472,6 +480,13 @@ router.get('/ia-summary', async (req, res) => {
 
             // Tests
             const tests = await Test.find({ classId, subject });
+            // Build category map if not already done
+            const testTypeList = await TestType.find({});
+            const catMap = {};
+            for (const tt of testTypeList) {
+                catMap[tt.name] = tt.category || 'ut';
+            }
+
             const utScores = [];
             let utMaxMarks = 20;
             const assignmentScores = [];
@@ -482,12 +497,12 @@ router.get('/ia-summary', async (req, res) => {
                     m => m.studentId.toString() === studentId.toString()
                 );
                 const score = studentMark?.score;
-                const testTypeLower = (test.testType || '').toLowerCase();
+                const cat = catMap[test.testType] || 'ut';
 
-                if (testTypeLower.includes('ut') || testTypeLower.includes('unit test')) {
+                if (cat === 'ut') {
                     if (score !== null && score !== undefined) utScores.push(score);
                     utMaxMarks = test.maxScore;
-                } else if (testTypeLower.includes('assignment')) {
+                } else if (cat === 'assignment') {
                     if (score !== null && score !== undefined) assignmentScores.push(score);
                     assignmentMax = Math.max(assignmentMax, test.maxScore);
                 }

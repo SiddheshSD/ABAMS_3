@@ -46,7 +46,13 @@ const TeacherAttendanceSheet = () => {
             setClassInfo(sheetResponse.data.classInfo);
             setBatchInfo(sheetResponse.data.batchInfo || null);
             setBatches(sheetResponse.data.batches || []);
-            setStudents(sheetResponse.data.students);
+            // Sort students by last name ascending
+            const sortedStudents = (sheetResponse.data.students || []).slice().sort((a, b) => {
+                const lastA = (a.lastName || '').toLowerCase();
+                const lastB = (b.lastName || '').toLowerCase();
+                return lastA.localeCompare(lastB);
+            });
+            setStudents(sortedStudents);
             setRecords(sheetResponse.data.attendanceRecords || []);
             setTimeSlots(timeSlotsResponse.data);
 
@@ -353,12 +359,12 @@ const TeacherAttendanceSheet = () => {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {students.map(student => {
+                                    {students.map((student, idx) => {
                                         const record = newAttendance.records.find(r => r.studentId === student._id);
                                         const status = record?.status || 'present';
                                         return (
                                             <tr key={student._id}>
-                                                <td>{student.username}</td>
+                                                <td>{idx + 1}</td>
                                                 <td>{student.fullName || `${student.firstName} ${student.lastName}`}</td>
                                                 <td>
                                                     <button
@@ -422,12 +428,12 @@ const TeacherAttendanceSheet = () => {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {students.map(student => {
+                                    {students.map((student, idx) => {
                                         const record = editedRecords.find(r => r.studentId === student._id);
                                         const status = record?.status || 'absent';
                                         return (
                                             <tr key={student._id}>
-                                                <td>{student.username}</td>
+                                                <td>{idx + 1}</td>
                                                 <td>{student.fullName || `${student.firstName} ${student.lastName}`}</td>
                                                 <td>
                                                     <button
@@ -489,10 +495,10 @@ const TeacherAttendanceSheet = () => {
                             </tr>
                         </thead>
                         <tbody>
-                            {students.map(student => (
+                            {students.map((student, idx) => (
                                 <tr key={student._id}>
                                     <td style={{ position: 'sticky', left: 0, background: 'var(--bg)', zIndex: 1 }}>
-                                        {student.username}
+                                        {idx + 1}
                                     </td>
                                     <td style={{ position: 'sticky', left: '80px', background: 'var(--bg)', zIndex: 1 }}>
                                         {student.fullName || `${student.firstName} ${student.lastName}`}

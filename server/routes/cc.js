@@ -263,45 +263,71 @@ router.get('/timetable', async (req, res) => {
 // ============================================
 
 // @route   GET /api/cc/attendance
-// @desc    Get attendance overview for the class
+// @desc    Get attendance overview for the class (batch-aware)
 router.get('/attendance', async (req, res) => {
     try {
         const classId = req.classId;
+        const classDoc = await Class.findById(classId).populate('departmentId');
 
-        // Get all attendance records for this class
-        const attendanceRecords = await Attendance.find({ classId })
-            .populate('timeSlotId')
-            .sort({ date: -1 });
+        // Get all timetable entries for this class to know which subjects and batches exist
+        const timetableEntries = await Timetable.find({ classId });
 
-        // Group by subject
-        const subjectMap = new Map();
-        attendanceRecords.forEach(record => {
-            const subject = record.subject || 'Unknown';
-            if (!subjectMap.has(subject)) {
-                subjectMap.set(subject, {
-                    subject,
-                    totalLectures: 0,
-                    totalPresent: 0,
-                    totalRecords: 0
+        // Group by subject + batchId
+        const subjectBatchMap = new Map();
+        for (const entry of timetableEntries) {
+            const batchKey = entry.batchId ? entry.batchId.toString() : 'all';
+            const key = `${entry.subject}-${batchKey}`;
+            if (!subjectBatchMap.has(key)) {
+                subjectBatchMap.set(key, {
+                    subject: entry.subject,
+                    batchId: entry.batchId || null
                 });
             }
-            const data = subjectMap.get(subject);
-            data.totalLectures++;
-            data.totalPresent += record.presentCount || 0;
-            data.totalRecords += record.totalCount || 0;
-        });
+        }
 
         const attendanceData = [];
-        for (const [subject, data] of subjectMap) {
-            const avgAttendance = data.totalRecords > 0
-                ? Math.round((data.totalPresent / data.totalRecords) * 100)
-                : 0;
+        for (const [key, data] of subjectBatchMap) {
+            let studentCount;
+            let batchName = null;
+
+            if (data.batchId) {
+                const batch = (classDoc?.batches || []).find(b => b._id.toString() === data.batchId.toString());
+                studentCount = batch ? batch.studentIds.length : 0;
+                batchName = batch ? batch.name : 'Unknown Batch';
+            } else {
+                studentCount = await User.countDocuments({ role: 'student', classId });
+            }
+
+            // Get attendance records for this subject + batch
+            const attendanceFilter = { classId, subject: data.subject };
+            if (data.batchId) {
+                attendanceFilter.batchId = data.batchId;
+            } else {
+                attendanceFilter.$or = [{ batchId: null }, { batchId: { $exists: false } }];
+            }
+
+            const records = await Attendance.find(attendanceFilter);
+            const totalLectures = records.length;
+            let totalPresent = 0;
+            let totalRecords = 0;
+            for (const rec of records) {
+                totalPresent += rec.presentCount || 0;
+                totalRecords += rec.totalCount || 0;
+            }
+            const avgAttendance = totalRecords > 0 ? Math.round((totalPresent / totalRecords) * 100) : 0;
+
+            // Last attendance
+            const lastAttendance = await Attendance.findOne(attendanceFilter).sort({ date: -1 });
 
             attendanceData.push({
-                subject,
-                totalLectures: data.totalLectures,
+                subject: data.subject,
+                batchId: data.batchId || null,
+                batchName,
+                totalStudents: studentCount,
+                totalLectures,
                 avgAttendance,
-                status: avgAttendance >= 75 ? 'good' : avgAttendance >= 60 ? 'warning' : 'low'
+                status: avgAttendance >= 75 ? 'good' : avgAttendance >= 60 ? 'warning' : 'low',
+                lastAttendanceDate: lastAttendance?.date || null
             });
         }
 
@@ -313,28 +339,59 @@ router.get('/attendance', async (req, res) => {
 });
 
 // @route   GET /api/cc/attendance/:subject
-// @desc    Get detailed attendance records for a subject
+// @desc    Get detailed attendance records for a subject (batch-aware)
 router.get('/attendance/:subject', async (req, res) => {
     try {
         const { subject } = req.params;
+        const { batchId } = req.query;
         const classId = req.classId;
 
-        // Get students in this class
-        const students = await User.find({
-            role: 'student',
-            classId
-        }).select('fullName firstName lastName username').sort({ fullName: 1 });
+        let students;
+        let batchInfo = null;
+        const classDoc = await Class.findById(classId);
 
-        // Get attendance records for this subject
-        const records = await Attendance.find({
-            classId,
-            subject
-        }).populate('timeSlotId').sort({ date: -1 });
+        if (batchId) {
+            // Get batch students only
+            const batch = classDoc?.batches?.find(b => b._id.toString() === batchId);
+            if (batch) {
+                batchInfo = { _id: batch._id, name: batch.name };
+                students = await User.find({
+                    _id: { $in: batch.studentIds },
+                    role: 'student'
+                }).select('fullName firstName lastName username').sort({ fullName: 1 });
+            } else {
+                students = [];
+            }
+        } else {
+            // Get all students in this class
+            students = await User.find({
+                role: 'student',
+                classId
+            }).select('fullName firstName lastName username').sort({ fullName: 1 });
+        }
+
+        // Get attendance records filtered by batchId
+        const attendanceFilter = { classId, subject };
+        if (batchId) {
+            attendanceFilter.batchId = batchId;
+        } else {
+            attendanceFilter.$or = [{ batchId: null }, { batchId: { $exists: false } }];
+        }
+
+        const records = await Attendance.find(attendanceFilter)
+            .populate('timeSlotId')
+            .sort({ date: -1 });
 
         // Get time slots
         const timeSlots = await TimeSlot.find();
 
-        res.json({ students, records, timeSlots });
+        res.json({
+            students,
+            records,
+            timeSlots,
+            batchInfo,
+            batches: classDoc?.batches || []
+        });
     } catch (error) {
         console.error('CC attendance detail error:', error);
         res.status(500).json({ message: 'Server error' });

@@ -1,6 +1,20 @@
 import { useState, useEffect } from 'react';
 import api from '../services/api';
 
+const CATEGORY_LABELS = {
+    ut: 'Unit Test',
+    assignment: 'Assignment',
+    practical: 'Practical',
+    ese: 'ESE (End Semester)'
+};
+
+const CATEGORY_COLORS = {
+    ut: { bg: 'rgba(99, 102, 241, 0.1)', color: '#6366f1' },
+    assignment: { bg: 'rgba(245, 158, 11, 0.1)', color: '#f59e0b' },
+    practical: { bg: 'rgba(16, 185, 129, 0.1)', color: '#10b981' },
+    ese: { bg: 'rgba(239, 68, 68, 0.1)', color: '#ef4444' }
+};
+
 const TestTypes = () => {
     const [testTypes, setTestTypes] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -12,7 +26,8 @@ const TestTypes = () => {
     const [formData, setFormData] = useState({
         name: '',
         description: '',
-        maxScore: 20
+        maxScore: 20,
+        category: 'ut'
     });
 
     useEffect(() => {
@@ -37,11 +52,12 @@ const TestTypes = () => {
             setFormData({
                 name: type.name,
                 description: type.description || '',
-                maxScore: type.maxScore || 20
+                maxScore: type.maxScore || 20,
+                category: type.category || 'ut'
             });
         } else {
             setEditingType(null);
-            setFormData({ name: '', description: '', maxScore: 20 });
+            setFormData({ name: '', description: '', maxScore: 20, category: 'ut' });
         }
         setShowModal(true);
     };
@@ -49,7 +65,7 @@ const TestTypes = () => {
     const handleCloseModal = () => {
         setShowModal(false);
         setEditingType(null);
-        setFormData({ name: '', description: '', maxScore: 20 });
+        setFormData({ name: '', description: '', maxScore: 20, category: 'ut' });
     };
 
     const handleSubmit = async (e) => {
@@ -95,7 +111,7 @@ const TestTypes = () => {
     };
 
     const handleSeedDefaults = async () => {
-        if (!window.confirm('This will create default test types (UT 1, UT 2, Semester, etc.). Continue?')) return;
+        if (!window.confirm('This will create default test types (UT 1, UT 2, Assignment, Practical, ESE). Continue?')) return;
 
         try {
             const response = await api.post('/test-types/seed');
@@ -122,7 +138,7 @@ const TestTypes = () => {
                     <div>
                         <h2 className="card-title">Test Types</h2>
                         <p style={{ margin: 0, color: 'var(--gray-500)', fontSize: '0.9rem' }}>
-                            Manage examination types that teachers can use for recording marks
+                            Manage examination types used for recording marks and IA calculation
                         </p>
                     </div>
                     <div style={{ display: 'flex', gap: '12px' }}>
@@ -136,73 +152,107 @@ const TestTypes = () => {
                 </div>
             </div>
 
+            {/* Category Legend */}
+            <div className="card" style={{ marginTop: '16px', padding: '16px' }}>
+                <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', alignItems: 'center' }}>
+                    <span style={{ fontWeight: '500', fontSize: '0.85rem', color: 'var(--gray-600)' }}>IA Categories:</span>
+                    {Object.entries(CATEGORY_LABELS).map(([key, label]) => (
+                        <span key={key} style={{
+                            padding: '4px 12px',
+                            borderRadius: '12px',
+                            fontSize: '0.8rem',
+                            fontWeight: '500',
+                            background: CATEGORY_COLORS[key].bg,
+                            color: CATEGORY_COLORS[key].color
+                        }}>
+                            {label}
+                        </span>
+                    ))}
+                </div>
+                <p style={{ margin: '8px 0 0', fontSize: '0.8rem', color: 'var(--gray-500)' }}>
+                    UT scores are averaged then scaled • Assignment scores are averaged then scaled • Practical scores contribute separately • ESE is not part of IA
+                </p>
+            </div>
+
             {/* Messages */}
             {message.text && (
-                <div className={`alert alert-${message.type}`} style={{ marginTop: '24px' }}>
+                <div className={`alert alert-${message.type}`} style={{ marginTop: '16px' }}>
                     {message.text}
                 </div>
             )}
 
             {/* Test Types Table */}
-            <div className="card" style={{ marginTop: '24px' }}>
+            <div className="card" style={{ marginTop: '16px' }}>
                 {testTypes.length > 0 ? (
                     <div style={{ overflowX: 'auto' }}>
                         <table className="table">
                             <thead>
                                 <tr>
                                     <th>Name</th>
+                                    <th>Category</th>
                                     <th>Description</th>
                                     <th>Default Max Score</th>
                                     <th>Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {testTypes.map(type => (
-                                    <tr key={type._id}>
-                                        <td>
-                                            <span style={{
-                                                fontWeight: '500',
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                gap: '8px'
-                                            }}>
-                                                {type.name}
-                                            </span>
-                                        </td>
-                                        <td style={{ color: 'var(--gray-600)' }}>
-                                            {type.description || '—'}
-                                        </td>
-                                        <td>
-                                            <span className="badge" style={{
-                                                background: 'var(--primary-light)',
-                                                color: 'var(--primary)',
-                                                padding: '4px 12px',
-                                                borderRadius: '12px'
-                                            }}>
-                                                {type.maxScore} marks
-                                            </span>
-                                        </td>
-                                        <td>
-                                            <div className="action-buttons">
-                                                <button
-                                                    className="btn btn-ghost"
-                                                    onClick={() => handleOpenModal(type)}
-                                                    title="Edit"
-                                                >
-                                                    Edit
-                                                </button>
-                                                <button
-                                                    className="btn btn-ghost"
-                                                    onClick={() => handleDelete(type._id)}
-                                                    title="Delete"
-                                                    style={{ color: 'var(--danger)' }}
-                                                >
-                                                    Delete
-                                                </button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ))}
+                                {testTypes.map(type => {
+                                    const cat = type.category || 'ut';
+                                    const catColor = CATEGORY_COLORS[cat] || CATEGORY_COLORS.ut;
+                                    return (
+                                        <tr key={type._id}>
+                                            <td>
+                                                <span style={{ fontWeight: '500' }}>
+                                                    {type.name}
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <span style={{
+                                                    padding: '4px 12px',
+                                                    borderRadius: '12px',
+                                                    fontSize: '0.8rem',
+                                                    fontWeight: '500',
+                                                    background: catColor.bg,
+                                                    color: catColor.color
+                                                }}>
+                                                    {CATEGORY_LABELS[cat] || cat}
+                                                </span>
+                                            </td>
+                                            <td style={{ color: 'var(--gray-600)' }}>
+                                                {type.description || '—'}
+                                            </td>
+                                            <td>
+                                                <span className="badge" style={{
+                                                    background: 'var(--primary-light)',
+                                                    color: 'var(--primary)',
+                                                    padding: '4px 12px',
+                                                    borderRadius: '12px'
+                                                }}>
+                                                    {type.maxScore} marks
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <div className="action-buttons">
+                                                    <button
+                                                        className="btn btn-ghost"
+                                                        onClick={() => handleOpenModal(type)}
+                                                        title="Edit"
+                                                    >
+                                                        Edit
+                                                    </button>
+                                                    <button
+                                                        className="btn btn-ghost"
+                                                        onClick={() => handleDelete(type._id)}
+                                                        title="Delete"
+                                                        style={{ color: 'var(--danger)' }}
+                                                    >
+                                                        Delete
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
                             </tbody>
                         </table>
                     </div>
@@ -251,9 +301,24 @@ const TestTypes = () => {
                                         className="form-input"
                                         value={formData.name}
                                         onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                                        placeholder="e.g., UT 1, Semester, Practical"
+                                        placeholder="e.g., UT 1, Assignment, Practical"
                                         required
                                     />
+                                </div>
+                                <div className="form-group" style={{ marginBottom: '16px' }}>
+                                    <label className="form-label">IA Category *</label>
+                                    <select
+                                        className="form-input"
+                                        value={formData.category}
+                                        onChange={(e) => setFormData(prev => ({ ...prev, category: e.target.value }))}
+                                    >
+                                        {Object.entries(CATEGORY_LABELS).map(([key, label]) => (
+                                            <option key={key} value={key}>{label}</option>
+                                        ))}
+                                    </select>
+                                    <p style={{ margin: '4px 0 0', fontSize: '0.8rem', color: 'var(--gray-500)' }}>
+                                        Determines how this test contributes to IA marks calculation
+                                    </p>
                                 </div>
                                 <div className="form-group" style={{ marginBottom: '16px' }}>
                                     <label className="form-label">Description</label>
@@ -297,4 +362,3 @@ const TestTypes = () => {
 };
 
 export default TestTypes;
-

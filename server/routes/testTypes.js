@@ -12,7 +12,7 @@ router.use(auth);
 router.get('/', async (req, res) => {
     try {
         const testTypes = await TestType.find()
-            .sort({ name: 1 });
+            .sort({ category: 1, name: 1 });
         res.json(testTypes);
     } catch (error) {
         console.error('Error fetching test types:', error);
@@ -41,7 +41,7 @@ router.get('/:id', adminOnly, async (req, res) => {
 // @access  Admin
 router.post('/', adminOnly, async (req, res) => {
     try {
-        const { name, description, maxScore } = req.body;
+        const { name, description, maxScore, category } = req.body;
 
         // Check if test type already exists
         const existing = await TestType.findOne({ name: name.trim() });
@@ -51,8 +51,9 @@ router.post('/', adminOnly, async (req, res) => {
 
         const testType = new TestType({
             name: name.trim(),
-            description: description?.trim(),
-            maxScore: maxScore || 20
+            description: description?.trim() || '',
+            maxScore: maxScore || 20,
+            category: category || 'ut'
         });
 
         await testType.save();
@@ -68,7 +69,7 @@ router.post('/', adminOnly, async (req, res) => {
 // @access  Admin
 router.put('/:id', adminOnly, async (req, res) => {
     try {
-        const { name, description, maxScore } = req.body;
+        const { name, description, maxScore, category } = req.body;
 
         // Check for duplicate name (exclude current)
         const existing = await TestType.findOne({
@@ -79,13 +80,16 @@ router.put('/:id', adminOnly, async (req, res) => {
             return res.status(400).json({ message: 'Test type with this name already exists' });
         }
 
+        const updateData = {
+            name: name.trim(),
+            description: description?.trim() || '',
+            maxScore: maxScore || 20
+        };
+        if (category) updateData.category = category;
+
         const testType = await TestType.findByIdAndUpdate(
             req.params.id,
-            {
-                name: name.trim(),
-                description: description?.trim(),
-                maxScore: maxScore || 20
-            },
+            updateData,
             { new: true }
         );
 
@@ -122,14 +126,11 @@ router.delete('/:id', adminOnly, async (req, res) => {
 router.post('/seed', adminOnly, async (req, res) => {
     try {
         const defaultTypes = [
-            { name: 'UT 1', description: 'Unit Test 1', maxScore: 20 },
-            { name: 'UT 2', description: 'Unit Test 2', maxScore: 20 },
-            { name: 'UT 3', description: 'Unit Test 3', maxScore: 20 },
-            { name: 'UT 4', description: 'Unit Test 4', maxScore: 20 },
-            { name: 'Semester', description: 'Semester End Examination', maxScore: 80 },
-            { name: 'Practical', description: 'Practical Examination', maxScore: 50 },
-            { name: 'Oral', description: 'Oral/Viva Examination', maxScore: 25 },
-            { name: 'Assignment', description: 'Assignment Submission', maxScore: 10 },
+            { name: 'UT 1', description: 'Unit Test 1', maxScore: 20, category: 'ut' },
+            { name: 'UT 2', description: 'Unit Test 2', maxScore: 20, category: 'ut' },
+            { name: 'Assignment', description: 'Assignment Submission', maxScore: 10, category: 'assignment' },
+            { name: 'Practical', description: 'Practical Examination', maxScore: 50, category: 'practical' },
+            { name: 'ESE', description: 'End Semester Examination', maxScore: 80, category: 'ese' },
         ];
 
         let created = 0;

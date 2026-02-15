@@ -357,7 +357,7 @@ router.get('/attendance/:classId/:subject', async (req, res) => {
                 students = await User.find({
                     _id: { $in: batch.studentIds },
                     role: 'student'
-                }).select('fullName username').sort({ fullName: 1 });
+                }).select('fullName firstName lastName username').sort({ fullName: 1 });
             } else {
                 students = [];
             }
@@ -366,7 +366,7 @@ router.get('/attendance/:classId/:subject', async (req, res) => {
             students = await User.find({
                 role: 'student',
                 classId
-            }).select('fullName username').sort({ fullName: 1 });
+            }).select('fullName firstName lastName username').sort({ fullName: 1 });
         }
 
         // Get attendance records filtered by batchId
@@ -698,6 +698,13 @@ router.get('/tests/:classId/:subject/ia-preview', async (req, res) => {
         const tests = await Test.find({ classId, subject });
         const attendanceRecords = await Attendance.find({ classId, subject });
 
+        // Build category map from TestType collection
+        const allTestTypes = await TestType.find({});
+        const categoryMap = {};
+        for (const tt of allTestTypes) {
+            categoryMap[tt.name] = tt.category || 'ut';
+        }
+
         const iaPreview = [];
         for (const student of students) {
             const sid = student._id.toString();
@@ -714,7 +721,7 @@ router.get('/tests/:classId/:subject/ia-preview', async (req, res) => {
             }
             const attPercent = academicCalc.calcAttendancePercent(attended, totalLectures);
 
-            // UT scores
+            // Scores by category
             const utScores = [];
             let utMaxMarks = 20;
             const assignmentScores = [];
@@ -723,12 +730,12 @@ router.get('/tests/:classId/:subject/ia-preview', async (req, res) => {
             for (const test of tests) {
                 const studentMark = test.marks.find(m => m.studentId.toString() === sid);
                 const score = studentMark?.score;
-                const tl = (test.testType || '').toLowerCase();
+                const cat = categoryMap[test.testType] || 'ut';
 
-                if (tl.includes('ut') || tl.includes('unit test')) {
+                if (cat === 'ut') {
                     if (score !== null && score !== undefined) utScores.push(score);
                     utMaxMarks = test.maxScore;
-                } else if (tl.includes('assignment')) {
+                } else if (cat === 'assignment') {
                     if (score !== null && score !== undefined) assignmentScores.push(score);
                     assignmentMax = Math.max(assignmentMax, test.maxScore);
                 }

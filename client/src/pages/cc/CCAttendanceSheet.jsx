@@ -1,13 +1,19 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import api from '../../services/api';
 
 const CCAttendanceSheet = () => {
     const { subject } = useParams();
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
+    const batchId = searchParams.get('batchId');
+    const decodedSubject = decodeURIComponent(subject);
+
     const [students, setStudents] = useState([]);
     const [records, setRecords] = useState([]);
     const [timeSlots, setTimeSlots] = useState([]);
+    const [batches, setBatches] = useState([]);
+    const [batchInfo, setBatchInfo] = useState(null);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [editingRecord, setEditingRecord] = useState(null);
@@ -15,14 +21,23 @@ const CCAttendanceSheet = () => {
 
     useEffect(() => {
         fetchData();
-    }, [subject]);
+    }, [subject, batchId]);
 
     const fetchData = async () => {
         try {
-            const response = await api.get(`/cc/attendance/${encodeURIComponent(subject)}`);
-            setStudents(response.data.students || []);
+            const batchParam = batchId ? `?batchId=${batchId}` : '';
+            const response = await api.get(`/cc/attendance/${encodeURIComponent(decodedSubject)}${batchParam}`);
+            // Sort students by last name ascending
+            const sortedStudents = (response.data.students || []).slice().sort((a, b) => {
+                const lastA = (a.lastName || '').toLowerCase();
+                const lastB = (b.lastName || '').toLowerCase();
+                return lastA.localeCompare(lastB);
+            });
+            setStudents(sortedStudents);
             setRecords(response.data.records || []);
             setTimeSlots(response.data.timeSlots || []);
+            setBatches(response.data.batches || []);
+            setBatchInfo(response.data.batchInfo || null);
         } catch (error) {
             console.error('Failed to fetch attendance data:', error);
         } finally {
@@ -39,7 +54,8 @@ const CCAttendanceSheet = () => {
     };
 
     const getTimeSlotLabel = (timeSlotId) => {
-        const slot = timeSlots.find(s => s._id === timeSlotId);
+        const slotId = timeSlotId?._id || timeSlotId;
+        const slot = timeSlots.find(s => s._id === slotId);
         if (!slot) return '';
         return `${slot.startTime} - ${slot.endTime}`;
     };
@@ -51,10 +67,15 @@ const CCAttendanceSheet = () => {
 
     const handleEditClick = (record) => {
         setEditingRecord(record);
-        setEditedRecords(record.records.map(r => ({
-            studentId: r.studentId?._id || r.studentId,
-            status: r.status
-        })));
+        setEditedRecords(students.map(student => {
+            const existingRecord = record.records?.find(r =>
+                r.studentId === student._id || r.studentId?._id === student._id
+            );
+            return {
+                studentId: student._id,
+                status: existingRecord?.status || 'absent'
+            };
+        }));
     };
 
     const handleStatusToggle = (studentId) => {
@@ -107,12 +128,77 @@ const CCAttendanceSheet = () => {
                         <button className="btn btn-outline" onClick={() => navigate('/cc/attendance')}>
                             ← Back
                         </button>
-                        <h2 className="card-title">{decodeURIComponent(subject)} - Attendance</h2>
+                        <div>
+                            <h2 className="card-title" style={{ margin: 0 }}>
+                                {decodedSubject} - Attendance
+                            </h2>
+                            {batchInfo && (
+                                <p style={{ margin: '4px 0 0', color: 'var(--text-secondary)', fontSize: '14px' }}>
+                                    Batch: {batchInfo.name}
+                                </p>
+                            )}
+                        </div>
                     </div>
                 </div>
 
+                {/* Batch Navbar */}
+                {batches.length > 0 && (
+                    <div style={{
+                        display: 'flex',
+                        gap: '0',
+                        padding: '0 16px',
+                        borderBottom: '2px solid var(--gray-200)',
+                        marginBottom: '8px',
+                        overflowX: 'auto'
+                    }}>
+                        <button
+                            onClick={() => {
+                                navigate(`/cc/attendance/${encodeURIComponent(decodedSubject)}`);
+                            }}
+                            style={{
+                                padding: '10px 20px',
+                                border: 'none',
+                                background: 'none',
+                                cursor: 'pointer',
+                                fontSize: '14px',
+                                fontWeight: !batchId ? '600' : '400',
+                                color: !batchId ? 'var(--primary)' : 'var(--gray-500)',
+                                borderBottom: !batchId ? '2px solid var(--primary)' : '2px solid transparent',
+                                marginBottom: '-2px',
+                                whiteSpace: 'nowrap',
+                                transition: 'all 0.2s ease'
+                            }}
+                        >
+                            All Students
+                        </button>
+                        {batches.map(batch => (
+                            <button
+                                key={batch._id}
+                                onClick={() => {
+                                    navigate(`/cc/attendance/${encodeURIComponent(decodedSubject)}?batchId=${batch._id}`);
+                                }}
+                                style={{
+                                    padding: '10px 20px',
+                                    border: 'none',
+                                    background: 'none',
+                                    cursor: 'pointer',
+                                    fontSize: '14px',
+                                    fontWeight: batchId === batch._id.toString() ? '600' : '400',
+                                    color: batchId === batch._id.toString() ? 'var(--primary)' : 'var(--gray-500)',
+                                    borderBottom: batchId === batch._id.toString() ? '2px solid var(--primary)' : '2px solid transparent',
+                                    marginBottom: '-2px',
+                                    whiteSpace: 'nowrap',
+                                    transition: 'all 0.2s ease'
+                                }}
+                            >
+                                {batch.name}
+                            </button>
+                        ))}
+                    </div>
+                )}
+
                 {editingRecord && (
-                    <div className="form-section" style={{ marginBottom: '20px', padding: '16px', background: 'var(--primary-light)', borderRadius: '8px' }}>
+                    <div className="form-section" style={{ margin: '0 16px 20px', padding: '16px', background: 'var(--primary-light)', borderRadius: '8px' }}>
                         <h3 style={{ marginBottom: '12px' }}>
                             Editing: {formatDate(editingRecord.date)} • {getTimeSlotLabel(editingRecord.timeSlotId?._id || editingRecord.timeSlotId)}
                         </h3>
@@ -126,12 +212,12 @@ const CCAttendanceSheet = () => {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {students.map(student => {
+                                    {students.map((student, idx) => {
                                         const record = editedRecords.find(r => r.studentId === student._id);
                                         const status = record?.status || 'absent';
                                         return (
                                             <tr key={student._id}>
-                                                <td>{student.username}</td>
+                                                <td>{idx + 1}</td>
                                                 <td>{student.fullName || `${student.firstName} ${student.lastName}`}</td>
                                                 <td>
                                                     <button
@@ -192,10 +278,10 @@ const CCAttendanceSheet = () => {
                             </tr>
                         </thead>
                         <tbody>
-                            {students.map(student => (
+                            {students.map((student, idx) => (
                                 <tr key={student._id}>
                                     <td style={{ position: 'sticky', left: 0, background: 'var(--bg)', zIndex: 1 }}>
-                                        {student.username}
+                                        {idx + 1}
                                     </td>
                                     <td style={{ position: 'sticky', left: '80px', background: 'var(--bg)', zIndex: 1 }}>
                                         {student.fullName || `${student.firstName} ${student.lastName}`}
@@ -225,7 +311,7 @@ const CCAttendanceSheet = () => {
 
                 {records.length === 0 && (
                     <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-secondary)' }}>
-                        No attendance records found for {decodeURIComponent(subject)}
+                        No attendance records found for {decodedSubject}{batchInfo ? ` (${batchInfo.name})` : ''}
                     </div>
                 )}
             </div>
